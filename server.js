@@ -1,5 +1,7 @@
 const express = require('express')
 const connectDB = require("./db");
+const dotenv = require("dotenv");
+dotenv.config();
 const cors = require("cors");
 const registerController = require("./controller/Registration");
 const authMiddleware = require("./Middleware/Auth");
@@ -18,8 +20,8 @@ app.post("/api/upvote-company-mail/:id",authMiddleware,companyManagerController.
 app.post("/api/downvote-company-mail/:id",authMiddleware,companyManagerController.downvoteCompanyMail);
 app.post("/api/register", registerController.registerUser);
 app.post("/api/login", loginController.loginUser);  
-app.listen(3000,()=>{
-console.log("listening at 3000")
+app.listen(process.env.PORT || 3000,()=>{
+console.log("listening at " + (process.env.PORT || 3000))
 
 })
 
