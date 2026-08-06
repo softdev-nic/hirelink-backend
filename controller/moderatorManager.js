@@ -1,8 +1,8 @@
 const user = require("../Model/Users");
+const mailer = require("../mailer")
 
 
-
-const selectModerator = async (req, res) => {  
+const assignModerator = async (req, res) => {  
     try {
         const { email } = req.body;
         const existingUser = await user.findOne({ email }); 
@@ -11,8 +11,9 @@ const selectModerator = async (req, res) => {
         }
         existingUser.isModerator = true; 
         existingUser.moderatorSelectedBy = req.user._id;
-        extistinguser.role="moderator"
+        existingUser.role = "moderator";
         await existingUser.save();
+        await mailer.sendEmail(existingUser.email, "Regarding Moderator Selection", ` Hi ${existingUser.name}, We are hereby pleased to inform you that you have been selected as a moderator. Please log in to your account.`);
         res.status(200).json({ message: "User selected as moderator successfully" });
     } catch (error) {
         console.error(error);
@@ -20,4 +21,4 @@ const selectModerator = async (req, res) => {
     }
 };
 
-module.exports = { selectModerator };      
+module.exports = { assignModerator };      

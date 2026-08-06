@@ -15,7 +15,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ["admin", "user"],
+    enum: ["admin", "user","moderator"],
     default: "user",
   },
   upvoteArray: [
@@ -35,7 +35,15 @@ const userSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.ObjectId,
       ref: "Mail",
     },
-  ],    
+  ],  
+  isModerator: {
+    type: Boolean,
+    default: false,
+  },
+  moderatorSelectedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+  },  
 
 });
 

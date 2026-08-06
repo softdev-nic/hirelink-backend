@@ -7,6 +7,8 @@ const registerController = require("./controller/Registration");
 const authMiddleware = require("./Middleware/Auth");
 const loginController = require("./controller/loginController");
 const companyManagerController = require("./controller/companyManagerController");
+const moderatorManager = require("./controller/moderatorManager");
+const superAdminAuth = require("./Middleware/superAdminAuth");
 connectDB();
 
 const app = express()
@@ -19,6 +21,7 @@ app.delete("/api/delete-company-mail/:id",authMiddleware,companyManagerControlle
 app.post("/api/upvote-company-mail/:id",authMiddleware,companyManagerController.upvoteCompanyMail);
 app.post("/api/downvote-company-mail/:id",authMiddleware,companyManagerController.downvoteCompanyMail);
 app.post("/api/register", registerController.registerUser);
+app.post("/api/assign-moderator",authMiddleware,moderatorManager.assignModerator);
 app.post("/api/login", loginController.loginUser);  
 app.listen(process.env.PORT || 3000,()=>{
 console.log("listening at " + (process.env.PORT || 3000))
