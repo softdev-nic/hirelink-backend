@@ -20,5 +20,25 @@ const assignModerator = async (req, res) => {
         res.status(500).json({ message: "Server error" });
     }
 };
+const demoteModerator = async (req, res) => {
+    try {
+        const { email } = req.body;
+        const existingUser = await user.findOne({ email });
+        if (!existingUser) {
+            return res.status(404).json({ message: "User not found" });
+        }
+        existingUser.isModerator = false;
+        existingUser.moderatorSelectedBy = null;
+        existingUser.role = "user";
+        await existingUser.save();
+        await mailer.sendEmail(existingUser.email, "Regarding Moderator Demotion", ` Hi ${existingUser.name}, We are hereby informing you that you have been demoted from the moderator role. Please log in to your account.`);
+        res.status(200).json({ message: "User demoted from moderator successfully" });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
+    }
+};
 
-module.exports = { assignModerator };      
+module.exports = { assignModerator, demoteModerator };          
+
+ 

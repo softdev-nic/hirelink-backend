@@ -15,7 +15,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ["admin", "user","moderator"],
+    enum: ["superAdmin","admin", "user","moderator"],
     default: "user",
   },
   upvoteArray: [
@@ -30,7 +30,7 @@ const userSchema = new mongoose.Schema({
       ref: "Mail",
     },
   ],    
-  ReportedArray: [
+  reportedArray: [
     {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Mail",

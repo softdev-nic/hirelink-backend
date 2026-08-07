@@ -10,6 +10,8 @@ const companyManagerController = require("./controller/companyManagerController"
 const passwordManager = require("./controller/passwordManager");
 const moderatorManager = require("./controller/moderatorManager");
 const superAdminAuth = require("./Middleware/superAdminAuth"); 
+const strictActions = require("./controller/actions/strictActions")
+const bannedCheck = require("./Middleware/BanChecker");
 connectDB();
 
 const app = express()
@@ -21,12 +23,14 @@ app.get("/api/get-companies",authMiddleware,companyManagerController.getCompanie
 app.delete("/api/delete-company-mail/:id",authMiddleware,companyManagerController.deleteCompanyMail);
 app.post("/api/upvote-company-mail/:id",authMiddleware,companyManagerController.upvoteCompanyMail);
 app.post("/api/downvote-company-mail/:id",authMiddleware,companyManagerController.downvoteCompanyMail);
-app.post("/api/register", registerController.registerUser);
+app.post("/api/register",bannedCheck, registerController.registerUser);
 app.post("/api/assign-moderator",authMiddleware,moderatorManager.assignModerator);
 app.post("/api/forgot-password", passwordManager.forgotPassword);
 app.post("/api/reset-password/:token", passwordManager.resetPassword);
 app.post("/api/report-mail/:id", authMiddleware,companyManagerController.reportCompanyMail); 
 app.post("/api/login", loginController.loginUser);  
+app.post("/api/ban-user", authMiddleware,superAdminAuth, strictActions.banUser);
+app.post("/api/unban-user", authMiddleware, strictActions.unbanUser);
 app.listen(process.env.PORT || 3000,()=>{
 console.log("listening at " + (process.env.PORT || 3000))
 

@@ -5,4 +5,4 @@ const superAdminAuth = (req, res, next) => {
     next();
 };
 
-module.exports = { superAdminAuth };
+module.exports = superAdminAuth ;

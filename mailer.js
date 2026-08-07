@@ -25,4 +25,4 @@ const recieveEmail = async (req, res) => {
   res.status(200).send("Event received");
 };
 
-module.exports = { sendEmail };
+module.exports = { sendEmail};
