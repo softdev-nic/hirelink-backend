@@ -19,4 +19,10 @@ async function sendEmail(to, subject, html) {
   }
 }
 
+const recieveEmail = async (req, res) => {
+  const event = req.body;
+  console.log("Received email event:", event);
+  res.status(200).send("Event received");
+};
+
 module.exports = { sendEmail };
