@@ -30,7 +30,7 @@ const forgotPassword = async (req, res) => {
     const { token } = req.params;
     const { password } = req.body;
 
-    if (!newPassword) {
+    if (!password) {
       return res.status(400).json({
         message: "New password is required"
       });
