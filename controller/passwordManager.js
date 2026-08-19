@@ -47,7 +47,7 @@ const forgotPassword = async (req, res) => {
       });
     }
 
-    existingUser.password = await bcrypt.hash(newPassword, 10);
+    existingUser.password = await bcrypt.hash(password, 10);
 
     existingUser.resetPasswordToken = undefined;
     existingUser.resetPasswordExpires = undefined;
