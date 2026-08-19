@@ -1,19 +1,22 @@
-const jwt = require("jsonwebtoken");
-const User = require("../Model/Users");
+ const privateAPI = axios.create({
+  baseURL: BASEURL,
+});
 
-const authMiddleware = async (req, res, next) => {
-  const token = req.header("Authorization")
- if(!token){
-    return res.status(401).json({ message: "No token, authorization denied" });
-  }
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = await User.findById(decoded.userId).select("-password");
-    next();
-  } catch (error) {
-    console.error(error);
-    res.status(401).json({ message: "Token is not valid" });
-  }
-};
+const publicAPI = axios.create({
+  baseURL: BASEURL,
+});
 
-module.exports = authMiddleware;    
+publicAPI.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("auth-token");
+
+    if (token) {
+      config.headers.Authorization = token;
+    }
+
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+export { privateAPI, publicAPI };
