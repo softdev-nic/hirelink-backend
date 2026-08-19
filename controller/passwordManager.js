@@ -49,7 +49,9 @@ const params = req.params;
     res.status(200).json({ message: "Password reset successful" });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error",
+      message:error.message
+     });
   }
 };
 
