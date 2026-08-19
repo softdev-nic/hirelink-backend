@@ -16,7 +16,7 @@ const forgotPassword = async (req, res) => {
     existingUser.resetPasswordExpires = Date.now() + 300000; // Token expires in 5 minutes
     await existingUser.save();
     
-    await mailer.sendEmail(existingUser.email, "Password Reset", `Hi ${existingUser.name}, you have requested a password reset. Please click the link to reset your password: http://localhost:3000/reset-password/${resetToken}`);
+    await mailer.sendEmail(existingUser.email, "Password Reset", `Hi ${existingUser.name}, you have requested a password reset. Please click the link to reset your password: http://localhost:5173/reset-password/${resetToken}`);
     res.status(200).json({ message: "Password reset token sent to email" });
   } catch (error) {
     console.error(error);
