@@ -28,7 +28,7 @@ companyName: {
     },    
     status:{
       type:String,
-      enum:["pending","approved","regected"],
+      enum:["pending","approved","rejected"],
       default:"pending"
     },
     AttendedBy:{
