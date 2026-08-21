@@ -24,7 +24,7 @@ app.post("/api/add-company",authMiddleware,companyManagerController.addCompany);
 app.get("/api/get-companies",authMiddleware,companyManagerController.getCompanies);
 app.delete("/api/delete-company-mail/:id",authMiddleware,moderatorAuth.moderatorAuth,companyManagerController.deleteCompanyMail);
 app.post("/api/upvote-company-mail/:id",authMiddleware,companyManagerController.upvoteCompanyMail);
-app.post("/api/chamge-mail-status",authMiddleware,moderatorAuth.moderatorOnly,mailActions.toggleMailStatus)
+app.post("/api/change-mail-status",authMiddleware,moderatorAuth.moderatorOnly,mailActions.toggleMailStatus)
 app.post("/api/downvote-company-mail/:id",authMiddleware,companyManagerController.downvoteCompanyMail);
 app.post("/api/register",bannedCheck, registerController.registerUser);
 app.post("/api/assign-moderator",authMiddleware,moderatorManager.assignModerator);
