@@ -16,6 +16,7 @@ const toggleMailStatus = async(req,res)=>{
         if(Mail.status==="rejected")
             Mail.expiresAt = new Date(Date.now()+24*60*60*1000)
         Mail.save()
+        res.status(201).json({message:`status changed to ${Mail.status}`})
         
     }catch(error){
         res.status(500).json({error:error})
