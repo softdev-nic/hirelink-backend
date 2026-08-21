@@ -12,7 +12,7 @@ const addCompany = async (req, res) => {
     if (existingCompany) {
       return res.status(400).json({ message: "Company already exists" });
     }
-    const newCompany = new Mail({ companyName, email, postedBy: req.user._id });
+    const newCompany = new Mail({ companyName, email, postedBy: req.user._id, expiresAt:new Date(Date.now()+3*24*60*60*1000 )});
     await newCompany.save();
     res.status(201).json({ message: "Company added successfully" });
   } catch (error) {

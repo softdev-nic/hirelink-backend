@@ -26,6 +26,23 @@ companyName: {
     default: Date.now,
 
     },    
+    status:{
+      type:String,
+      enum:["pending","approved","regected"],
+      default:"pending"
+    },
+    AttendedBy:{
+      type:mongoose.Schema.ObjectId,
+      ref:"user"
+    },
+    expiresAt:{
+      type:Date,
+      default:null
+    }
     } 
   )
+  MailSchema.index({
+    expiresAt:1,
+    expireAfterSeconds:0
+  })
 module.exports = mongoose.model("Mail", MailSchema);

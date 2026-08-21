@@ -16,5 +16,11 @@ const creatorCheck = (req.user._id.toString()===Mail.postedBy.toString()) ?true:
     }
     next();
 };
+ const moderatorOnly = (req,res,next)=>{ 
+     if (req.user.role !== "moderator" && req.user.role !== "superAdmin"  ) {
+        return res.status(403).json({ message: "Access denied. Moderator only." });
+    }
+    next()
 
-module.exports =  moderatorAuth ; 
+ }
+module.exports =  {moderatorAuth,moderatorOnly} ; 
