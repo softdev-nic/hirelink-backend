@@ -6,7 +6,9 @@ const addCompany = async (req, res) => {
     if(!companyName || !email) {
       return res.status(400).json({ message: "Company name and email are required" });
     }
-    const existingCompany = await Mail.findOne({ companyName, email });
+    const existingCompany = await  Mail.findOne({
+        $or:[{email},{companyName}]
+    })
     if (existingCompany) {
       return res.status(400).json({ message: "Company already exists" });
     }
