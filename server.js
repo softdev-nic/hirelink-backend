@@ -12,6 +12,7 @@ const moderatorManager = require("./controller/moderatorManager");
 const superAdminAuth = require("./Middleware/superAdminAuth"); 
 const strictActions = require("./controller/actions/strictActions")
 const bannedCheck = require("./Middleware/BanChecker");
+const moderatorAuth = require('./Middleware/moderatorAuth')
 connectDB();
 
 const app = express()
@@ -20,7 +21,7 @@ app.use(cors())
 
 app.post("/api/add-company",authMiddleware,companyManagerController.addCompany);
 app.get("/api/get-companies",authMiddleware,companyManagerController.getCompanies);
-app.delete("/api/delete-company-mail/:id",authMiddleware,companyManagerController.deleteCompanyMail);
+app.delete("/api/delete-company-mail/:id",authMiddleware,moderatorAuth,companyManagerController.deleteCompanyMail);
 app.post("/api/upvote-company-mail/:id",authMiddleware,companyManagerController.upvoteCompanyMail);
 app.post("/api/downvote-company-mail/:id",authMiddleware,companyManagerController.downvoteCompanyMail);
 app.post("/api/register",bannedCheck, registerController.registerUser);

@@ -5,4 +5,4 @@ const moderatorAuth = (req, res, next) => {
     next();
 };
 
-module.exports = { moderatorAuth }; 
+module.exports =  moderatorAuth ; 
