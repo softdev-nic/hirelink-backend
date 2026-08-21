@@ -3,7 +3,8 @@ const { findById } = require("../Model/Users");
 const isCreator = require("./creatorAuth");
 const moderatorAuth = async(req, res, next) => {
 const {id} = req.params
-const Mail = await findById(id)
+console.log(id)
+const Mail = await mail.findById(id)
 if(!Mail){
     return res.status(400).json({message:"mail does not exist"})
 }
