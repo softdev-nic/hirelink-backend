@@ -23,7 +23,7 @@ const addCompany = async (req, res) => {
 
 const getCompanies = async (req, res) => {
     try {
-        const companies = await Mail.find();
+        const companies = await Mail.find({status:"approved"});
         res.status(200).json(companies);
     } catch (error) {
         console.error(error);
