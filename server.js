@@ -20,20 +20,20 @@ const app = express()
 app.use(express.json())
 app.use(cors())
 
-app.post("/api/add-company",authMiddleware,companyManagerController.addCompany);
-app.get("/api/get-companies/:statusParameter",authMiddleware,companyManagerController.getCompanies);
-app.delete("/api/delete-company-mail/:id",authMiddleware,moderatorAuth.moderatorAuth,companyManagerController.deleteCompanyMail);
-app.post("/api/upvote-company-mail/:id",authMiddleware,companyManagerController.upvoteCompanyMail);
-app.post("/api/change-mail-status",authMiddleware,moderatorAuth.moderatorOnly,mailActions.toggleMailStatus)
-app.post("/api/downvote-company-mail/:id",authMiddleware,companyManagerController.downvoteCompanyMail);
+app.post("/api/add-company",authMiddleware.authMiddleware,companyManagerController.addCompany);
+app.get("/api/get-companies/:statusParameter",authMiddleware.authMiddleware,authMiddleware.filterValidation,companyManagerController.getCompanies);
+app.delete("/api/delete-company-mail/:id",authMiddleware.authMiddleware,moderatorAuth.moderatorAuth,companyManagerController.deleteCompanyMail);
+app.post("/api/upvote-company-mail/:id",authMiddleware.authMiddleware,companyManagerController.upvoteCompanyMail);
+app.post("/api/change-mail-status",authMiddleware.authMiddleware,moderatorAuth.moderatorOnly,mailActions.toggleMailStatus)
+app.post("/api/downvote-company-mail/:id",authMiddleware.authMiddleware,companyManagerController.downvoteCompanyMail);
 app.post("/api/register",bannedCheck, registerController.registerUser);
-app.post("/api/assign-moderator",authMiddleware,moderatorManager.assignModerator);
+app.post("/api/assign-moderator",authMiddleware.authMiddleware,moderatorManager.assignModerator);
 app.post("/api/forgot-password", passwordManager.forgotPassword);
 app.post("/api/reset-password/:token", passwordManager.resetPassword);
-app.post("/api/report-mail/:id", authMiddleware,companyManagerController.reportCompanyMail); 
+app.post("/api/report-mail/:id", authMiddleware.authMiddleware,companyManagerController.reportCompanyMail); 
 app.post("/api/login", loginController.loginUser);  
-app.post("/api/ban-user", authMiddleware,superAdminAuth, strictActions.banUser);
-app.post("/api/unban-user", authMiddleware, strictActions.unbanUser);
+app.post("/api/ban-user", authMiddleware.authMiddleware,superAdminAuth, strictActions.banUser);
+app.post("/api/unban-user", authMiddleware.authMiddleware, strictActions.unbanUser);
 app.listen(process.env.PORT || 3000,()=>{
 console.log("listening at " + (process.env.PORT || 3000))
 

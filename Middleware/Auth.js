@@ -16,4 +16,12 @@ const authMiddleware = async (req, res, next) => {
   }
 };
 
-module.exports = authMiddleware;    
+const filterValidation = async(req,res,next)=>{
+  const USER = await User.findById(req.user._id)
+
+  if(USER.role!=="moderator" && USER.role!=="superAdmin" &&req.params.statusParameter!=="approved"){
+    return res.status(403).json({message:"This is invalid filter for this tier"})
+  }
+  next()
+}
+module.exports = {authMiddleware,filterValidation};    
