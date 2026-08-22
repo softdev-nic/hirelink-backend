@@ -14,13 +14,14 @@ const strictActions = require("./controller/actions/strictActions")
 const bannedCheck = require("./Middleware/BanChecker");
 const moderatorAuth = require('./Middleware/moderatorAuth')
 const mailActions = require("./controller/actions/mailActions")
+const domainCheck = require("./Middleware/domainValidation")
 connectDB();
 
 const app = express()
 app.use(express.json())
 app.use(cors())
 
-app.post("/api/add-company",authMiddleware.authMiddleware,companyManagerController.addCompany);
+app.post("/api/add-company",authMiddleware.authMiddleware,domainCheck,companyManagerController.addCompany);
 app.get("/api/get-companies/:statusParameter",authMiddleware.authMiddleware,authMiddleware.filterValidation,companyManagerController.getCompanies);
 app.delete("/api/delete-company-mail/:id",authMiddleware.authMiddleware,moderatorAuth.moderatorAuth,companyManagerController.deleteCompanyMail);
 app.post("/api/upvote-company-mail/:id",authMiddleware.authMiddleware,companyManagerController.upvoteCompanyMail);
