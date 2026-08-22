@@ -21,7 +21,7 @@ app.use(express.json())
 app.use(cors())
 
 app.post("/api/add-company",authMiddleware,companyManagerController.addCompany);
-app.get("/api/get-companies",authMiddleware,companyManagerController.getCompanies);
+app.get("/api/get-companies/:statusParameter",authMiddleware,companyManagerController.getCompanies);
 app.delete("/api/delete-company-mail/:id",authMiddleware,moderatorAuth.moderatorAuth,companyManagerController.deleteCompanyMail);
 app.post("/api/upvote-company-mail/:id",authMiddleware,companyManagerController.upvoteCompanyMail);
 app.post("/api/change-mail-status",authMiddleware,moderatorAuth.moderatorOnly,mailActions.toggleMailStatus)

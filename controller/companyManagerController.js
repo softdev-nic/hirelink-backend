@@ -1,11 +1,11 @@
 const Mail = require("../Model/LinkSchema");
 const user = require("../Model/Users");
 const addCompany = async (req, res) => {
-  try {
-    const { companyName, email } = req.body;
-    if(!companyName || !email) {
-      return res.status(400).json({ message: "Company name and email are required" });
-    }
+    try {
+        const { companyName, email } = req.body;
+        if(!companyName || !email) {
+            return res.status(400).json({ message: "Company name and email are required" });
+        }
     const existingCompany = await  Mail.findOne({
         $or:[{email},{companyName}]
     })
@@ -22,12 +22,29 @@ const addCompany = async (req, res) => {
 };
 
 const getCompanies = async (req, res) => {
+let companies;
+
     try {
-        const companies = await Mail.find({status:"approved"});
-        res.status(200).json(companies);
+        const parameters = ["approved","pending","rejected","all"]
+        const specialParameters = ["approved","pending","rejected"]
+        const {statusParameter} = req.params
+ 
+        if(!parameters.includes(statusParameter)){
+            return res.status(400).json({message: "invalid status parameter"
+            })
+        }
+
+         if(specialParameters.includes(statusParameter))
+         companies = await Mail.find({status: statusParameter});
+
+        if(statusParameter==="all")
+        {
+            companies = await Mail.find()
+        }
+       return res.status(200).json(companies);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: "Server error" });
+       return res.status(500).json({ message: "Server error" });
     }
 };
 const deleteCompanyMail = async (req, res) => {
