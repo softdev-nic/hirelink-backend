@@ -41,7 +41,7 @@ let companies;
         {
             companies = await Mail.find()
         }
-       return res.status(200).json(companies);
+       return res.status(200).json({companies,count:companies.length});
     } catch (error) {
         console.error(error);
        return res.status(500).json({ message: "Server error" });
