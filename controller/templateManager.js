@@ -16,4 +16,15 @@ const addTemplate= async(req,res)=>{
 }
 }
 
-module.exports= {addTemplate}
+const getTemplate = async(req,res)=>{
+    try{
+
+        const template = await  user.findById(req.user._id).select("template")
+        return res.status(201).json({template})
+    }catch(error){
+    return res.status(500).json({error:error.message})
+    }
+
+}
+
+module.exports= {addTemplate,getTemplate}

@@ -37,6 +37,7 @@ app.post("/api/login", loginController.loginUser);
 app.post("/api/ban-user", authMiddleware.authMiddleware,superAdminAuth, strictActions.banUser);
 app.post("/api/unban-user", authMiddleware.authMiddleware, strictActions.unbanUser);
 app.post("/api/template/add",authMiddleware.authMiddleware,templateManager.addTemplate)
+app.get("/api/template/get",authMiddleware.authMiddleware,templateManager.getTemplate)
 app.listen(process.env.PORT || 3000,()=>{
 console.log("listening at " + (process.env.PORT || 3000))
 
