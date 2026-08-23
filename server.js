@@ -15,6 +15,7 @@ const bannedCheck = require("./Middleware/BanChecker");
 const moderatorAuth = require('./Middleware/moderatorAuth')
 const mailActions = require("./controller/actions/mailActions")
 const domainCheck = require("./Middleware/domainValidation")
+const templateManager = require("./controller/templateManager")
 connectDB();
 
 const app = express()
@@ -35,6 +36,7 @@ app.post("/api/report-mail/:id", authMiddleware.authMiddleware,companyManagerCon
 app.post("/api/login", loginController.loginUser);  
 app.post("/api/ban-user", authMiddleware.authMiddleware,superAdminAuth, strictActions.banUser);
 app.post("/api/unban-user", authMiddleware.authMiddleware, strictActions.unbanUser);
+app.post("/api/template/add",authMiddleware.authMiddleware,templateManager.addTemplate)
 app.listen(process.env.PORT || 3000,()=>{
 console.log("listening at " + (process.env.PORT || 3000))
 
