@@ -19,7 +19,7 @@ const addTemplate= async(req,res)=>{
 const getTemplate = async(req,res)=>{
     try{
 
-        const template = await  user.findById(req.user._id).select("template")
+        const template = await  user.findById(req.user._id).select("template email")
         return res.status(201).json({template})
     }catch(error){
     return res.status(500).json({error:error.message})
