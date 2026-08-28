@@ -10,7 +10,9 @@ const generateOTP = async(user)=>{
         const otp = crypto.randomInt(100000,1000000).toString()
         const challengeId = crypto.randomUUID()
         const otpExpiresAt = new Date(Date.now()+5*60*1000)
-        existingUser.otpChallenge({challengeId,otp,otpExpiresAt})
+        existingUser.challengeId=challengeId
+        existingUser.otp=otp
+        existingUser.otpExpiresAt = otpExpiresAt
         await existingUser.save()
         await mailer.sendEmail(existingUser.email, "Your HireLink verification code", `Hi ${existingUser.name}, your verification code is ${otp}. It expires in 5 minutes.`)
 

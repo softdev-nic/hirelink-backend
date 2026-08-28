@@ -16,8 +16,8 @@ const registerUser = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = new user({ name, email, password: hashedPassword });
     await newUser.save();
-    await emailVerification.generateOTP(newUser)
-    res.status(201).json({ message: "User registered successfully", user: newUser});
+   const newChallengeId = await emailVerification.generateOTP(newUser)
+    res.status(201).json({ message: "User registered successfully", user: newUser, challengeId:newChallengeId.params});
 return
   } catch (error) {
     console.error(error);
