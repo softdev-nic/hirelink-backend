@@ -4,7 +4,7 @@ const mailer = require("../mailer")
 
 const generateOTP = async(user)=>{
     try{
-        const existingUser = await user.findBy({email})
+        const existingUser = await user.findById(user._id)
       
 
         const otp = crypto.randomInt(100000,1000000).toString()
