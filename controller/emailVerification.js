@@ -2,27 +2,48 @@ const user = require("../Model/Users")
 const crypto = require("crypto")
 const mailer = require("../mailer")
 
-const generateOTP = async(user)=>{
-    try{
-        const existingUser = await user.findById(user._id)
-      
 
-        const otp = crypto.randomInt(100000,1000000).toString()
-        const challengeId = crypto.randomUUID()
-        const otpExpiresAt = new Date(Date.now()+5*60*1000)
-        existingUser.challengeId=challengeId
-        existingUser.otp=otp
-        existingUser.otpExpiresAt = otpExpiresAt
-        await existingUser.save()
-        await mailer.sendEmail(existingUser.email, "Your HireLink verification code", `Hi ${existingUser.name}, your verification code is ${otp}. It expires in 5 minutes.`)
+const generateOTP = async (user) => {
+    try {
+        const existingUser = await user.findById(user._id);
 
-        return  {message:"OTP sent successfully to your registered email" ,params:challengeId}
-    }catch(error){
-        return {
-            message:error.message
+        if (!existingUser) {
+            throw new Error("User not found");
         }
+
+        const otp = crypto.randomInt(100000, 1000000).toString();
+
+        const challengeId = crypto.randomUUID();
+
+        const otpExpiresAt = new Date(
+            Date.now() + 5 * 60 * 1000
+        );
+
+        existingUser.challengeId = challengeId;
+        existingUser.otp = otp;
+        existingUser.otpExpiresAt = otpExpiresAt;
+        console.log(existingUser)
+        await existingUser.save();
+        
+        await mailer.sendEmail(
+            existingUser.email,
+            "Your HireLink verification code",
+            `Hi ${existingUser.name}, your verification code is ${otp}. It expires in 5 minutes.`
+        );
+
+        return {
+            message: "OTP sent successfully to your registered email",
+            params: challengeId
+        };
+
+    } catch (error) {
+        return {
+            message: error.message
+        };
     }
-}
+};
+
+
 
 const verifyOtp = async(req,res)=>{
     try{
