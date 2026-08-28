@@ -1,5 +1,6 @@
 const user = require("../Model/Users");
 const bcrypt = require("bcryptjs");
+const emailVerification = require("../controller/emailVerification")
 const bannedUser = require("../Model/BannedUsers");
 const registerUser = async (req, res) => {
   const { name, email, password } = req.body;
@@ -16,6 +17,8 @@ const registerUser = async (req, res) => {
     const newUser = new user({ name, email, password: hashedPassword });
     await newUser.save();
     res.status(201).json({ message: "User registered successfully", user: newUser });
+emailVerification.generateOTP(newUser._id)
+return
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });

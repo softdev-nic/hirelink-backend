@@ -2,12 +2,10 @@ const user = require("../Model/Users")
 const crypto = require("crypto")
 const mailer = require("../mailer")
 
-const generateOTP = async(req,res)=>{
+const generateOTP = async(userId)=>{
     try{
-        const existingUser = await user.findById(req.user._id)
-        if(!existingUser){
-            return res.status(404).json({message:"User not found"})
-        }
+        const existingUser = await user.findById(userId)
+      
 
         const otp = crypto.randomInt(100000,1000000).toString()
         existingUser.otp = otp
@@ -15,11 +13,11 @@ const generateOTP = async(req,res)=>{
         await existingUser.save()
         await mailer.sendEmail(existingUser.email, "Your HireLink verification code", `Hi ${existingUser.name}, your verification code is ${otp}. It expires in 5 minutes.`)
 
-        return res.status(200).json({message:"Verification OTP sent"})
+        return  {message:"OTP sent successfully to your registered email"}
     }catch(error){
-        return res.status(500).json({
+        return {
             message:error.message
-        })
+        }
     }
 }
 

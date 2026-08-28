@@ -35,8 +35,7 @@ app.post("/api/forgot-password", passwordManager.forgotPassword);
 app.post("/api/reset-password/:token", passwordManager.resetPassword);
 app.post("/api/report-mail/:id", authMiddleware.authMiddleware,companyManagerController.reportCompanyMail); 
 app.post("/api/login", loginController.loginUser);  
-app.post("/api/generate-otp", authMiddleware.authMiddleware, emailVerification.generateOTP);
-app.post("/api/verify-otp", authMiddleware.authMiddleware, emailVerification.verifyOtp);
+app.post("/api/otp/verify", authMiddleware.authMiddleware, emailVerification.verifyOtp);
 app.post("/api/ban-user", authMiddleware.authMiddleware,superAdminAuth, strictActions.banUser);
 app.post("/api/unban-user", authMiddleware.authMiddleware, strictActions.unbanUser);
 app.post("/api/template/add",authMiddleware.authMiddleware,templateManager.addTemplate)
