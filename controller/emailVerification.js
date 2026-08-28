@@ -29,12 +29,11 @@ const verifyOtp = async(req,res)=>{
         }
 
         const existingUser = await user.findOne({
-            _id: req.user._id,
             otp: otp.toString(),
             otpExpiresAt: {$gt: Date.now()}
         })
         if(!existingUser){
-            return res.status(400).json({message:"Invalid or expired OTP"})
+            return res.status(400).json({message:error.message})
         }
 
         existingUser.isVerified = true
