@@ -40,6 +40,10 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  isVerified: {
+    type: Boolean,
+    default: false,
+  },
   moderatorSelectedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
@@ -57,7 +61,19 @@ template:{
   text:{
     type:String
   }
+},
+challengeId:{
+  type:String,
+  default :null
+},
+otp:{
+  type:String,
+  default: null
+},
+otpExpiresAt: {
+  type:Date
 }
+
 });
 
 module.exports = mongoose.model("User", userSchema);        
