@@ -33,7 +33,7 @@ const verifyOtp = async(req,res)=>{
             otpExpiresAt: {$gt: Date.now()}
         })
         if(!existingUser){
-            return res.status(400).json({message:error.message})
+            return res.status(400).json({message:"invalid OTP"})
         }
 
         existingUser.isVerified = true
