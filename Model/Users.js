@@ -66,12 +66,18 @@ challengeId:{
   type:String,
   default :null
 },
-otp:{
+otpChallenge:{
+  challengeId:{
+    type:String,
+    default:null
+  },
+  otp:{
   type:String,
   default: null
 },
 otpExpiresAt: {
   type:Date
+}
 }
 
 });
