@@ -23,7 +23,7 @@ const creatorCheck = (req.user._id.toString()===Mail.postedBy.toString()) ?true:
     next()
 
  }
-  const moderatorcheck = (req,res)=>{ 
+  const moderatorcheck = (req,res,next)=>{ 
      if (req.user.role !== "moderator" && req.user.role !== "superAdmin"  ) {
         return res.status(403).json({ message: "Access denied. Moderator only." });
     }
