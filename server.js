@@ -22,7 +22,18 @@ connectDB();
 
 const app = express()
 app.use(express.json())
-app.use(cors())
+const allowedOrigins= ["https://hirelink.atmex.com","http://localhost:5173"]
+app.use(cors(
+    {
+         origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error("Not allowed by CORS"));
+        }
+    },
+    }
+))
 
 app.post("/api/add-company",authMiddleware.authMiddleware,domainCheck,companyManagerController.addCompany);
 app.get("/api/get-companies/:statusParameter",authMiddleware.authMiddleware,authMiddleware.filterValidation,companyManagerController.getCompanies);
