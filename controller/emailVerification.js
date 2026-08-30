@@ -19,10 +19,9 @@ const generateOTP = async (user) => {
             Date.now() + 5 * 60 * 1000
         );
 
-        existingUser.challengeId = challengeId;
-        existingUser.otp = otp;
-        existingUser.otpExpiresAt = otpExpiresAt;
-        console.log(existingUser)
+        existingUser.otpChallenge.challengeId = challengeId;
+        existingUser.otpChallenge.otp = otp;
+        existingUser.otpChallenge.otpExpiresAt = otpExpiresAt;
         await existingUser.save();
         
         await mailer.sendEmail(

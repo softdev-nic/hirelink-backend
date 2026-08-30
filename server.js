@@ -17,6 +17,7 @@ const mailActions = require("./controller/actions/mailActions")
 const domainCheck = require("./Middleware/domainValidation")
 const templateManager = require("./controller/templateManager")
 const emailVerification = require("./controller/emailVerification")
+const getter = require("./controller/getter")
 connectDB();
 
 const app = express()
@@ -40,6 +41,8 @@ app.post("/api/ban-user", authMiddleware.authMiddleware,superAdminAuth, strictAc
 app.post("/api/unban-user", authMiddleware.authMiddleware, strictActions.unbanUser);
 app.post("/api/template/add",authMiddleware.authMiddleware,templateManager.addTemplate)
 app.get("/api/template/get",authMiddleware.authMiddleware,templateManager.getTemplate)
+app.get("/api/role",authMiddleware.authMiddleware,getter.getRole)
+app.get("/api/moderator-check",authMiddleware.authMiddleware,moderatorAuth.moderatorcheck)
 app.listen(process.env.PORT || 3000,()=>{
 console.log("listening at " + (process.env.PORT || 3000))
 

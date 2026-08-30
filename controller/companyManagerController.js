@@ -28,15 +28,18 @@ let companies;
         const parameters = ["approved","pending","rejected","all"]
         const specialParameters = ["approved","pending","rejected"]
         const {statusParameter} = req.params
- 
+        const moderator = req.user.isModerator
         if(!parameters.includes(statusParameter)){
             return res.status(400).json({message: "invalid status parameter"
             })
         }
+        const forbidden = ["all","pending","rejected"]
+        if(!moderator && forbidden.includes(statusParameter)){
+            return res.status(403)
+        }
 
          if(specialParameters.includes(statusParameter))
          companies = await Mail.find({status: statusParameter});
-
         if(statusParameter==="all")
         {
             companies = await Mail.find()
@@ -48,6 +51,7 @@ let companies;
        return res.status(500).json({ message: "Server error" });
     }
 };
+ 
 const deleteCompanyMail = async (req, res) => {
     try {
         const { id } = req.params;
