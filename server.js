@@ -22,7 +22,7 @@ connectDB();
 
 const app = express()
 app.use(express.json())
-const allowedOrigins= ["https://hirelink.atmex.com","http://localhost:5173"]
+const allowedOrigins= ["https://hirelink.atmex.site","http://localhost:5173"]
 app.use(cors(
     {
          origin: (origin, callback) => {
