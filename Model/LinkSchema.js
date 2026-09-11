@@ -31,6 +31,11 @@ companyName: {
       enum:["pending","approved","rejected"],
       default:"pending"
     },
+    category:{
+      type:String,
+      enum:["IT","Marketing","Sales","HR","Finance","Operations","Other","DevOps","Design","Legal","Customer Support","Product Management","Business Development","Data Science","Quality Assurance","Research and Development  ","Public Relations","Training and Development","Procurement","Logistics","Administration","Strategy and Planning","Risk Management","Compliance","Investor Relations","Corporate Communications","Event Management","Facilities Management","Sustainability and CSR"],
+      required:true
+    },
     AttendedBy:{
       type:mongoose.Schema.ObjectId,
       ref:"user"

@@ -18,6 +18,7 @@ const domainCheck = require("./Middleware/domainValidation")
 const templateManager = require("./controller/templateManager")
 const emailVerification = require("./controller/emailVerification")
 const getter = require("./controller/getter")
+const limiter = require("./Middleware/Limiter")
 connectDB();
 
 const app = express()
@@ -43,13 +44,13 @@ app.post("/api/change-mail-status",authMiddleware.authMiddleware,moderatorAuth.m
 app.post("/api/downvote-company-mail/:id",authMiddleware.authMiddleware,companyManagerController.downvoteCompanyMail);
 app.post("/api/register",bannedCheck, registerController.registerUser);
 app.post("/api/assign-moderator",authMiddleware.authMiddleware,moderatorManager.assignModerator);
-app.post("/api/forgot-password", passwordManager.forgotPassword);
+app.post("/api/forgot-password", limiter.passwordResetLimiter, passwordManager.forgotPassword);
 app.post("/api/reset-password/:token", passwordManager.resetPassword);
 app.post("/api/report-mail/:id", authMiddleware.authMiddleware,companyManagerController.reportCompanyMail); 
-app.post("/api/login", loginController.loginUser);  
+app.post("/api/login",limiter.authLimiter, loginController.loginUser);  
 app.post("/api/otp/verify", authMiddleware.authMiddleware, emailVerification.verifyOtp);
 app.post("/api/ban-user", authMiddleware.authMiddleware,superAdminAuth, strictActions.banUser);
-app.post("/api/unban-user", authMiddleware.authMiddleware, strictActions.unbanUser);
+app.post("/api/unban-user", authMiddleware.authMiddleware, superAdminAuth, strictActions.unbanUser);
 app.post("/api/template/add",authMiddleware.authMiddleware,templateManager.addTemplate)
 app.get("/api/template/get",authMiddleware.authMiddleware,templateManager.getTemplate)
 app.get("/api/role",authMiddleware.authMiddleware,getter.getRole)
