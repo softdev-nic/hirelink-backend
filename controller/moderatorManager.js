@@ -1,19 +1,31 @@
-const user = require("../Model/Users");
+ const user = require("../Model/Users");
 const mailer = require("../mailer")
 
+
+const escapeHtml = (s = "") =>
+    s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 const assignModerator = async (req, res) => {  
     try {
         const { email } = req.body;
+        if (typeof email !== "string") {
+            return res.status(400).json({ message: "Invalid request" });
+        }
         const existingUser = await user.findOne({ email }); 
         if (!existingUser) {
             return res.status(404).json({ message: "User not found" });
+        }
+        if (existingUser.role === "superAdmin") {
+            return res.status(403).json({ message: "A super admin's role cannot be changed" });
+        }
+        if (existingUser.role === "moderator") {
+            return res.status(400).json({ message: "User is already a moderator" });
         }
         existingUser.isModerator = true; 
         existingUser.moderatorSelectedBy = req.user._id;
         existingUser.role = "moderator";
         await existingUser.save();
-        await mailer.sendEmail(existingUser.email, "Regarding Moderator Selection", ` Hi ${existingUser.name}, We are hereby pleased to inform you that you have been selected as a moderator. Please log in to your account.`);
+        await mailer.sendEmail(existingUser.email, "Regarding Moderator Selection", ` Hi ${escapeHtml(existingUser.name)}, We are hereby pleased to inform you that you have been selected as a moderator. Please log in to your account.`);
         res.status(200).json({ message: "User selected as moderator successfully" });
     } catch (error) {
         console.error(error);
@@ -23,15 +35,21 @@ const assignModerator = async (req, res) => {
 const demoteModerator = async (req, res) => {
     try {
         const { email } = req.body;
+        if (typeof email !== "string") {
+            return res.status(400).json({ message: "Invalid request" });
+        }
         const existingUser = await user.findOne({ email });
         if (!existingUser) {
             return res.status(404).json({ message: "User not found" });
+        }
+        if (existingUser.role === "superAdmin") {
+            return res.status(403).json({ message: "A super admin's role cannot be changed" });
         }
         existingUser.isModerator = false;
         existingUser.moderatorSelectedBy = null;
         existingUser.role = "user";
         await existingUser.save();
-        await mailer.sendEmail(existingUser.email, "Regarding Moderator Demotion", ` Hi ${existingUser.name}, We are hereby informing you that you have been demoted from the moderator role. Please log in to your account.`);
+        await mailer.sendEmail(existingUser.email, "Regarding Moderator Demotion", ` Hi ${escapeHtml(existingUser.name)}, We are hereby informing you that you have been demoted from the moderator role. Please log in to your account.`);
         res.status(200).json({ message: "User demoted from moderator successfully" });
     } catch (error) {
         console.error(error);
@@ -39,6 +57,4 @@ const demoteModerator = async (req, res) => {
     }
 };
 
-module.exports = { assignModerator, demoteModerator };          
-
- 
+module.exports = { assignModerator, demoteModerator };

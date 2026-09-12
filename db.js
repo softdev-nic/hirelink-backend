@@ -1,6 +1,8 @@
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 dotenv.config();
+
+mongoose.set("sanitizeFilter", true);
 const connectDB = async () => {
   try {
     await mongoose.connect(process.env.DBURL);

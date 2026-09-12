@@ -1,19 +1,44 @@
-const limiter = require("express-rate-limit");
-("dotenv").config();
-const skip = ()=> process.env.NODE_ENV !== "production";
-const genereteLimiter = (skip, minutes,limit,message) => {
-     return limiter({
-        windowMs: minutes * 60* 60* 1000,
-        max: limit,
-        message: message,
-        skip: skip
-    }); 
-}   
+ const rateLimit = require("express-rate-limit");
 
+const skip = () => process.env.NODE_ENV !== "production";
 
-    module.exports = {
-        authLimiter: genereteLimiter(skip, 24, 5, "Too many requests from this IP, please try again after 24 hours"),  
-        otpLimiter: genereteLimiter(skip, 24, 3, "Too many OTP requests from this IP, please try again after 24 hours"),
-        passwordResetLimiter: genereteLimiter(skip, 4, 3, "Too many password reset requests from this IP, please try again after 4 hours"),
-        mailSubmissionLimiter: genereteLimiter(skip, 24, 10, "Too many mail submissions from this IP, please try again after 24 hours"),  
-    }
+const makeLimiter = ({ hours, limit, message, skipSuccessfulRequests = false }) =>
+  rateLimit({
+    windowMs: hours * 60 * 60 * 1000,
+    limit,
+    skip,
+    skipSuccessfulRequests,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { message },
+  });
+
+module.exports = {
+  
+  authLimiter: makeLimiter({
+    hours: 1,
+    limit: 15,
+    skipSuccessfulRequests: true,
+    message: "Too many failed login attempts. Try again later.",
+  }),
+  registerLimiter: makeLimiter({
+    hours: 1,
+    limit: 5,
+    message: "Too many accounts created from this network. Try again later.",
+  }),
+  otpLimiter: makeLimiter({
+    hours: 24,
+    limit: 5,
+    message: "Too many OTP attempts. Try again later.",
+  }),
+  passwordResetLimiter: makeLimiter({
+    hours: 24,
+    limit: 5,
+    message: "Too many password reset requests. Try again later.",
+  }),
+  mailSubmissionLimiter: makeLimiter({
+    hours: 24,
+    limit: 10,
+    message: "Too many submissions. Try again later.",
+  }),
+};

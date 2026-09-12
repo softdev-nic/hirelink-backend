@@ -1,75 +1,68 @@
-const user = require("../Model/Users")
-const crypto = require("crypto")
-const mailer = require("../mailer")
+ const User = require("../Model/Users");
+const crypto = require("crypto");
+const mailer = require("../mailer");
 
+const MAX_ATTEMPTS = 5;
+const OTP_TTL_MS = 5 * 60 * 1000;
 
-const generateOTP = async (user) => {
-    try {
-        const existingUser = await user.findById(user._id);
+const escapeHtml = (s = "") =>
+  s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-        if (!existingUser) {
-            throw new Error("User not found");
-        }
+const generateOTP = async (userDoc) => {
+  const otp = crypto.randomInt(100000, 1000000).toString();
+  const challengeId = crypto.randomUUID();
 
-        const otp = crypto.randomInt(100000, 1000000).toString();
+  userDoc.otpChallenge = {
+    challengeId,
+    otp,
+    otpExpiresAt: new Date(Date.now() + OTP_TTL_MS),
+    attempts: 0,
+  };
+  await userDoc.save();
 
-        const challengeId = crypto.randomUUID();
+  await mailer.sendEmail(
+    userDoc.email,
+    "Your HireLink verification code",
+    `<p>Hi ${escapeHtml(userDoc.name)}, your verification code is <b>${otp}</b>. It expires in 5 minutes.</p>`
+  );
 
-        const otpExpiresAt = new Date(
-            Date.now() + 5 * 60 * 1000
-        );
-
-        existingUser.otpChallenge.challengeId = challengeId;
-        existingUser.otpChallenge.otp = otp;
-        existingUser.otpChallenge.otpExpiresAt = otpExpiresAt;
-        await existingUser.save();
-        
-        await mailer.sendEmail(
-            existingUser.email,
-            "Your HireLink verification code",
-            `Hi ${existingUser.name}, your verification code is ${otp}. It expires in 5 minutes.`
-        );
-
-        return {
-            message: "OTP sent successfully to your registered email",
-            params: challengeId
-        };
-
-    } catch (error) {
-        return {
-            message: error.message
-        };
-    }
+  return challengeId;
 };
 
-
-
-const verifyOtp = async(req,res)=>{
-    try{
-        const {otp} = req.body
-        if(!/^\d{6}$/.test(otp.toString())){
-            return res.status(400).json({message:"A 6-digit OTP is required"})
-        }
-
-        const existingUser = await user.findOne({
-            otp: otp.toString(),
-            otpExpiresAt: {$gt: Date.now()}
-        })
-        if(!existingUser){
-            return res.status(400).json({message:"invalid OTP"})
-        }
-
-        existingUser.isVerified = true
-        existingUser.otp = null
-        existingUser.otpExpiresAt = null
-        await existingUser.save()
-
-        return res.status(200).json({message:"Email verified successfully"})
-    }catch(error){
-        return res.status(500).json({message:error.message})
+const verifyOtp = async (req, res) => {
+  try {
+    const { otp, challengeId } = req.body;
+    if (typeof otp !== "string" || !/^\d{6}$/.test(otp) || typeof challengeId !== "string") {
+      return res.status(400).json({ message: "Invalid request" });
     }
-}
 
-module.exports = {generateOTP, verifyOtp}
+    const existingUser = await User.findOne({ "otpChallenge.challengeId": challengeId });
+    const ch = existingUser?.otpChallenge;
 
+    if (!ch?.otp || !ch.otpExpiresAt || ch.otpExpiresAt < Date.now()) {
+      return res.status(400).json({ message: "Invalid or expired OTP" });
+    }
 
+    const match = crypto.timingSafeEqual(Buffer.from(ch.otp), Buffer.from(otp));
+    if (!match) {
+      ch.attempts += 1;
+      if (ch.attempts >= MAX_ATTEMPTS) {
+        ch.otp = null;
+        ch.challengeId = null;
+      }
+      await existingUser.save();
+      return res.status(400).json({ message: "Invalid or expired OTP" });
+    }
+
+    existingUser.isVerified = true;
+    existingUser.otpChallenge = { challengeId: null, otp: null, otpExpiresAt: null, attempts: 0 };
+    await existingUser.save();
+
+    return res.status(200).json({ message: "Email verified successfully" });
+  } catch (error) {
+    console.error("verifyOtp error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+module.exports = { generateOTP, verifyOtp };

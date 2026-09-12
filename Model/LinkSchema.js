@@ -1,4 +1,14 @@
 const mongoose = require("mongoose");
+const CATEGORIES = [
+  "IT", "Marketing", "Sales", "HR", "Finance", "Operations", "Other", "DevOps",
+  "Design", "Legal", "Customer Support", "Product Management",
+  "Business Development", "Data Science", "Quality Assurance",
+  "Research and Development", "Public Relations", "Training and Development",
+  "Procurement", "Logistics", "Administration", "Strategy and Planning",
+  "Risk Management", "Compliance", "Investor Relations",
+  "Corporate Communications", "Event Management", "Facilities Management",
+  "Sustainability and CSR",
+];
 const MailSchema = new mongoose.Schema({
 companyName: {
     type: String,
@@ -33,8 +43,9 @@ companyName: {
     },
     category:{
       type:String,
-      enum:["IT","Marketing","Sales","HR","Finance","Operations","Other","DevOps","Design","Legal","Customer Support","Product Management","Business Development","Data Science","Quality Assurance","Research and Development  ","Public Relations","Training and Development","Procurement","Logistics","Administration","Strategy and Planning","Risk Management","Compliance","Investor Relations","Corporate Communications","Event Management","Facilities Management","Sustainability and CSR"],
-      required:true
+      enum: CATEGORIES,
+      required:true,
+      default:"Other"
     },
     AttendedBy:{
       type:mongoose.Schema.ObjectId,

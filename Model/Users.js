@@ -54,6 +54,10 @@ const userSchema = new mongoose.Schema({
   resetPasswordExpires: {
     type: Date,
   },  
+  passwordChangedAt:{
+ type: Date,
+ default: null,
+},
 template:{
   subject:{
     type:String
@@ -62,24 +66,27 @@ template:{
     type:String
   }
 },
-challengeId:{
-  type:String,
-  default :null
-},
-otpChallenge:{
-  challengeId:{
-    type:String,
-    default:null
-  },
-  otp:{
-  type:String,
-  default: null
-},
-otpExpiresAt: {
-  type:Date
-}
-}
 
+otpChallenge: {
+  challengeId: { type: String, default: null },
+  otp: { type: String, default: null },
+  otpExpiresAt: { type: Date, default: null },
+  attempts: { type: Number, default: 0 },
+},
+ 
+
+
+});
+userSchema.index({"otpChallenge.challengeId":1},{sparse:true})
+userSchema.set("toJSON", {
+  transform: (doc, ret) => {
+    delete ret.password;
+    delete ret.resetPasswordToken;
+    delete ret.resetPasswordExpires;
+    delete ret.otpChallenge;
+    delete ret.__v;
+    return ret;
+  },
 });
 
 module.exports = mongoose.model("User", userSchema);        
