@@ -13,25 +13,27 @@ const registerUser = async (req, res) => {
       return res.status(400).json({ message: "Name, valid email and 8+ character password required" });
     }
 
-    const existingUser = await User.findOne({ email });
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
       return res.status(400).json({ message: "User already exists" });
     }
 
-    const existingBannedUser = await bannedUser.findOne({ email });
+    const existingBannedUser = await bannedUser.findOne({ email: normalizedEmail });
     if (existingBannedUser) {
       return res.status(400).json({ message: "User is banned" });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = new User({ name: name.trim(), email, password: hashedPassword });
+    const newUser = new User({ name: name.trim(), email: normalizedEmail, password: hashedPassword });
     await newUser.save();
 
     let challengeId = null;
     try {
       challengeId = await emailVerification.generateOTP(newUser);
     } catch (otpError) {
-      console.error("OTP send failed for", email, otpError);
+      console.error("OTP send failed for", normalizedEmail, otpError);
     }
 
     return res.status(201).json({
