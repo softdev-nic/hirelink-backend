@@ -66,5 +66,5 @@ const MailSchema = new mongoose.Schema({
 
 MailSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
-module.exports = mongoose.model("Mail", MailSchema);
+ module.exports = mongoose.models.Mail || mongoose.model("Mail", MailSchema);
 module.exports.CATEGORIES = CATEGORIES;

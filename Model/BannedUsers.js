@@ -22,4 +22,4 @@ const bannedUserSchema = new mongoose.Schema({
   },
 });
 
-module.exports = mongoose.model("BannedUser", bannedUserSchema);
+module.exports = mongoose.models.BannedUser || mongoose.model("BannedUser", bannedUserSchema);

@@ -10,4 +10,4 @@ const domainSchema = mongoose.Schema({
     }
 })
 
-module.exports = mongoose.model("validDomains",domainSchema)
+ module.exports = mongoose.models.validDomains || mongoose.model("validDomains", domainSchema);
