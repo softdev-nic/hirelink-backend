@@ -1,16 +1,21 @@
-const bannedUser = require("../Model/BannedUsers");
+ const bannedUser = require("../Model/BannedUsers");
+
 const banChecker = async (req, res, next) => {
-    const { email } = req.body;
+  const { email } = req.body;
   try {
-    const existingBannedUser = await bannedUser.findOne({ email });
+    if (typeof email !== "string") {
+      return res.status(400).json({ message: "Invalid request" });
+    }
+
+    const existingBannedUser = await bannedUser.findOne({ email: email.toLowerCase().trim() });
     if (existingBannedUser) {
       return res.status(403).json({ message: "User is banned" });
     }
     next();
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "User is banned" });
+    return res.status(500).json({ message: "Server error" });
   }
-};          
+};
 
 module.exports = banChecker;

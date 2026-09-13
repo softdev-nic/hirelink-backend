@@ -1,13 +1,10 @@
-const user = require("../Model/Users")
+ const getRole = async (req, res) => {
+  try {
+    return res.status(200).json({ role: req.user.role });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
 
-const getRole = async(req,res)=>{
-    try{
-
-        const  User = await user.findById(req.user._id)
-        return res.json({role:User.role})
-
-    }catch(error){return res.status(500).json({error:error.message})}
-}
-
-
-module.exports = {getRole}
+module.exports = { getRole };

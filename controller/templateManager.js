@@ -1,30 +1,39 @@
-const user = require("../Model/Users")
-const addTemplate= async(req,res)=>{
-    const {subject,text} = req.body
-    try{
-    const User = await user.findById(req.user._id)
-    if(!User){
-        return res.status(403).json({message:"user not found"})
+ const User = require("../Model/Users");
+
+const addTemplate = async (req, res) => {
+  try {
+    const { subject, text } = req.body;
+
+    if (typeof subject !== "string" || typeof text !== "string") {
+      return res.status(400).json({ message: "Subject and text are required" });
     }
-    User.template.subject = subject
-    User.template.text    = text
-    await User.save()
-    res.status(201).json({message:"template added successfully"})
-}catch(error)
-{
-    return res.status(500).json({error:error.message})
-}
-}
-
-const getTemplate = async(req,res)=>{
-    try{
-
-        const template = await  user.findById(req.user._id).select("template email")
-        return res.status(201).json({template})
-    }catch(error){
-    return res.status(500).json({error:error.message})
+    if (subject.length > 200 || text.length > 5000) {
+      return res.status(400).json({ message: "Subject or text is too long" });
     }
 
-}
+    await User.updateOne(
+      { _id: req.user._id },
+      { $set: { "template.subject": subject, "template.text": text } }
+    );
 
-module.exports= {addTemplate,getTemplate}
+    return res.status(200).json({ message: "Template added successfully" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+const getTemplate = async (req, res) => {
+  try {
+    const template = await User.findById(req.user._id).select("template email");
+    if (!template) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    return res.status(200).json({ template });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+module.exports = { addTemplate, getTemplate };

@@ -1,4 +1,5 @@
-const mongoose = require("mongoose");
+ const mongoose = require("mongoose");
+
 const CATEGORIES = [
   "IT", "Marketing", "Sales", "HR", "Finance", "Operations", "Other", "DevOps",
   "Design", "Legal", "Customer Support", "Product Management",
@@ -9,56 +10,61 @@ const CATEGORIES = [
   "Corporate Communications", "Event Management", "Facilities Management",
   "Sustainability and CSR",
 ];
+
 const MailSchema = new mongoose.Schema({
-companyName: {
+  companyName: {
     type: String,
     required: true,
-  },    
+    trim: true,
+  },
   email: {
     type: String,
     required: true,
-    },
-    upvote:{
+    lowercase: true,
+    trim: true,
+  },
+  upvote: {
     type: Number,
     default: 0,
-    },
-    downvote:{
+  },
+  downvote: {
     type: Number,
     default: 0,
-    }, 
-    postedBy:{
+  },
+  reports: {
+    type: Number,
+    default: 0,
+  },
+  postedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
     required: true,
-    },
-    createdAt: {
+  },
+  createdAt: {
     type: Date,
     default: Date.now,
+  },
+  status: {
+    type: String,
+    enum: ["pending", "approved", "rejected"],
+    default: "pending",
+  },
+  category: {
+    type: String,
+    enum: CATEGORIES,
+    default: "Other",
+  },
+  AttendedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+  },
+  expiresAt: {
+    type: Date,
+    default: null,
+  },
+});
 
-    },    
-    status:{
-      type:String,
-      enum:["pending","approved","rejected"],
-      default:"pending"
-    },
-    category:{
-      type:String,
-      enum: CATEGORIES,
-      required:true,
-      default:"Other"
-    },
-    AttendedBy:{
-      type:mongoose.Schema.ObjectId,
-      ref:"user"
-    },
-    expiresAt:{
-      type:Date,
-      default:null
-    }
-    } 
-  )
-  MailSchema.index({
-    expiresAt:1,
-    expireAfterSeconds:0
-  })
+MailSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
 module.exports = mongoose.model("Mail", MailSchema);
+module.exports.CATEGORIES = CATEGORIES;
