@@ -1,6 +1,6 @@
 const mail = require("../Model/LinkSchema");
 const { findById } = require("../Model/Users");
-const isCreator = require("./creatorAuth");
+ 
 const moderatorAuth = async(req, res, next) => {
 const {id} = req.params
 

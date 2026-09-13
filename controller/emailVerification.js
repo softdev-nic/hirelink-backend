@@ -29,6 +29,28 @@ const generateOTP = async (userDoc) => {
   return challengeId;
 };
 
+const resendOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (typeof email !== "string") {
+      return res.status(400).json({ message: "Invalid request" });
+    }
+
+    const existingUser = await User.findOne({ email: email.toLowerCase().trim() });
+    const generic = { message: "If that account exists and is unverified, a new code has been sent." };
+
+    if (!existingUser || existingUser.isVerified) {
+      return res.status(200).json(generic);
+    }
+
+    const challengeId = await generateOTP(existingUser);
+    return res.status(200).json({ ...generic, challengeId });
+  } catch (error) {
+    console.error("resendOtp error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
 const verifyOtp = async (req, res) => {
   try {
     const { otp, challengeId } = req.body;
@@ -65,4 +87,4 @@ const verifyOtp = async (req, res) => {
   }
 };
 
-module.exports = { generateOTP, verifyOtp };
+module.exports = { generateOTP, verifyOtp, resendOtp };
