@@ -1,78 +1,88 @@
-# HireLink Backend Documentation
+ # HireLink Backend Documentation
 
 ## 1. Project Overview
 
-HireLink is a Node.js backend application built with **Express.js**, **MongoDB/Mongoose**, **JWT authentication**, **bcrypt password hashing**, and **Resend** for transactional email.
+HireLink is a Node.js backend built with **Express.js**, **MongoDB/Mongoose**, **JWT authentication**, **bcrypt password hashing**, and **Resend** for transactional email.
 
-The backend provides functionality for:
+The backend provides:
 
-* User registration and login
-* JWT-based authentication
-* Company email/link management
-* Upvoting and downvoting company emails
-* Reporting company emails
-* Moderator assignment
-* Moderator demotion
-* User banning and unbanning
-* Password reset through email
+* User registration with mandatory email verification (OTP)
+* JWT-based authentication with session invalidation on password change
+* Company email/link management with moderation workflow
+* One-vote-per-user upvoting and downvoting
+* One-report-per-user reporting
+* Moderator assignment and demotion (super admin only)
+* User banning and unbanning (super admin only)
+* Password reset through email with hashed tokens
 * Role-based authorization
-* Banned-user checking
+* Per-account and per-IP rate limiting
 * Transactional email notifications
 
 ---
 
 ## 2. Technology Stack
 
-| Technology | Purpose                         |
-| ---------- | ------------------------------- |
-| Node.js    | Backend runtime                 |
-| Express.js | HTTP server and API framework   |
-| MongoDB    | Database                        |
-| Mongoose   | MongoDB ODM                     |
-| JWT        | Authentication                  |
-| bcryptjs   | Password hashing                |
-| Resend     | Email delivery                  |
-| dotenv     | Environment variable management |
-| CORS       | Cross-origin request handling   |
+| Technology | Purpose |
+| ---------- | ------- |
+| Node.js | Backend runtime |
+| Express.js 5 | HTTP server and API framework |
+| MongoDB | Database |
+| Mongoose 9 | MongoDB ODM |
+| JWT | Authentication |
+| bcryptjs | Password hashing |
+| Resend | Email delivery |
+| helmet | HTTP security headers |
+| express-rate-limit | Abuse prevention |
+| dotenv | Environment variable management |
+| CORS | Cross-origin request handling |
 
 ### Dependencies
 
-The project currently declares:
-
-* `express`
-* `mongoose`
-* `bcryptjs`
-* `jsonwebtoken`
-* `dotenv`
-* `cors`
-* `resend`
+```text
+express
+mongoose
+bcryptjs
+jsonwebtoken
+dotenv
+cors
+resend
+helmet
+express-rate-limit
+```
 
 ---
 
-# 3. Project Structure
+## 3. Project Structure
 
 ```text
-HireLink Backend/
+hirelink-backend/
 │
 ├── Middleware/
 │   ├── Auth.js
 │   ├── BanChecker.js
+│   ├── Limiter.js
+│   ├── domainValidation.js
 │   ├── moderatorAuth.js
 │   └── superAdminAuth.js
 │
 ├── Model/
 │   ├── BannedUsers.js
 │   ├── LinkSchema.js
-│   └── Users.js
+│   ├── Users.js
+│   └── ValidDomains.js
 │
 ├── controller/
 │   ├── Registration.js
 │   ├── companyManagerController.js
+│   ├── emailVerification.js
+│   ├── getter.js
 │   ├── loginController.js
 │   ├── moderatorManager.js
 │   ├── passwordManager.js
+│   ├── templateManager.js
 │   │
 │   └── actions/
+│       ├── mailActions.js
 │       └── strictActions.js
 │
 ├── db.js
@@ -84,724 +94,588 @@ HireLink Backend/
 
 ---
 
-# 4. Application Entry Point
+## 4. Application Entry Point
 
-## `server.js`
+### `server.js`
 
-`server.js` is the main entry point of the application.
-
-It:
+`server.js` is the main entry point. It:
 
 1. Loads environment variables.
 2. Connects to MongoDB.
 3. Creates the Express application.
-4. Enables JSON request parsing.
-5. Enables CORS.
-6. Registers API routes.
-7. Starts the HTTP server.
-
-The application listens on:
-
-```text
-PORT
-```
-
-from the environment, or defaults to:
-
-```text
-3000
-```
+4. Sets `trust proxy` so rate limiters see real client IPs behind a reverse proxy.
+5. Applies `helmet()` security headers.
+6. Enables JSON parsing with a 100 kb body cap.
+7. Applies a CORS allowlist.
+8. Registers API routes, grouped by required privilege.
+9. Registers a catch-all error handler so stack traces never reach clients.
+10. Starts the HTTP server on `PORT`, defaulting to `3000`.
 
 ---
 
-# 5. Environment Variables
-
-The application expects environment variables for external services and authentication.
-
-## Required variables
+## 5. Environment Variables
 
 ```env
 PORT=3000
 DBURL=your_mongodb_connection_string
 JWT_SECRET=your_jwt_secret
 RESEND_API_KEY=your_resend_api_key
+NODE_ENV=production
 ```
 
-### `PORT`
-
-Specifies the port on which Express listens.
-
-If not provided, the application uses port `3000`.
-
-### `DBURL`
-
-MongoDB connection string used by Mongoose.
-
-### `JWT_SECRET`
-
-Secret used to sign and verify JWT authentication tokens.
-
-### `RESEND_API_KEY`
-
-API key used by Resend to send emails.
+| Variable | Purpose |
+| -------- | ------- |
+| `PORT` | Port Express listens on. Defaults to `3000`. |
+| `DBURL` | MongoDB connection string. |
+| `JWT_SECRET` | Secret used to sign and verify JWTs. |
+| `RESEND_API_KEY` | API key for Resend. |
+| `NODE_ENV` | **Rate limiting is active only when this equals `production`.** Leave unset during local development. |
 
 ---
 
-# 6. Database Connection
+## 6. Database Connection
 
-## `db.js`
+### `db.js`
 
-The database connection is handled by Mongoose.
+The connection is handled by Mongoose. Before connecting, the application sets:
 
-The application executes:
-
-```text
-mongoose.connect(process.env.DBURL)
+```js
+mongoose.set("sanitizeFilter", true);
 ```
 
-If the connection succeeds:
+This strips MongoDB operators out of query filters, so a request body such as
+`{"email": {"$ne": null}}` is treated as a literal value rather than a query
+operator. This is the application's baseline defence against NoSQL injection.
 
-```text
-MongoDB connected
-```
-
-is printed.
-
-If the connection fails, the error is logged and the process exits.
+On failure the error is logged and the process exits.
 
 ---
 
-# 7. Database Models
+## 7. Database Models
 
-## 7.1 User Model
+### 7.1 User Model — `Model/Users.js`
 
-### File
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `name` | String | User's name |
+| `email` | String | Unique, stored lowercase and trimmed |
+| `password` | String | bcrypt hash |
+| `role` | String | Authorization role |
+| `upvoteArray` | ObjectId[] | Mails upvoted by the user |
+| `downvoteArray` | ObjectId[] | Mails downvoted by the user |
+| `reportedArray` | ObjectId[] | Mails reported by the user |
+| `isModerator` | Boolean | Moderator flag |
+| `isVerified` | Boolean | Email verification status; login requires `true` |
+| `moderatorSelectedBy` | ObjectId | Super admin who assigned the moderator |
+| `resetPasswordToken` | String | **SHA-256 hash** of the reset token |
+| `resetPasswordExpires` | Date | Reset token expiry |
+| `passwordChangedAt` | Date | JWTs issued before this timestamp are rejected |
+| `template.subject` | String | User's saved email subject |
+| `template.text` | String | User's saved email body |
+| `otpChallenge.challengeId` | String | Random UUID identifying one verification attempt |
+| `otpChallenge.otp` | String | Six-digit code |
+| `otpChallenge.otpExpiresAt` | Date | Code expiry |
+| `otpChallenge.attempts` | Number | Failed attempts; the challenge is destroyed at 5 |
 
-```text
-Model/Users.js
-```
+**Email normalization.** The email field uses `lowercase: true` and `trim: true`.
+This must stay consistent with `BannedUsers`, otherwise a banned user could
+re-register using a different letter case.
 
-The `User` model represents registered users.
+**Index.** A sparse index on `otpChallenge.challengeId` keeps verification
+lookups off a full collection scan.
 
-### Fields
+**`toJSON` transform.** The schema deletes `password`, `resetPasswordToken`,
+`resetPasswordExpires`, `otpChallenge` and `__v` from any serialized document.
+This is a safety net: even if a controller returns a whole user document, the
+secrets do not reach the client.
 
-| Field                  | Type       | Description                         |
-| ---------------------- | ---------- | ----------------------------------- |
-| `name`                 | String     | User's name                         |
-| `email`                | String     | User's email address                |
-| `password`             | String     | Hashed password                     |
-| `role`                 | String     | User authorization role             |
-| `upvoteArray`          | ObjectId[] | Company mails upvoted by the user   |
-| `downvoteArray`        | ObjectId[] | Company mails downvoted by the user |
-| `reportedArray`        | ObjectId[] | Company mails reported by the user  |
-| `isModerator`          | Boolean    | Indicates moderator status          |
-| `moderatorSelectedBy`  | ObjectId   | User who selected the moderator     |
-| `resetPasswordToken`   | String     | Password-reset token                |
-| `resetPasswordExpires` | Date       | Password-reset token expiry         |
-
-### Available roles
-
-```text
-superAdmin
-admin
-user
-moderator
-```
-
-The default role is:
-
-```text
-user
-```
+**Roles:** `superAdmin`, `admin`, `user`, `moderator`. Default is `user`.
 
 ---
 
-# 8. Company Mail Model
+### 7.2 Company Mail Model — `Model/LinkSchema.js`
 
-## `Model/LinkSchema.js`
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `companyName` | String | Company name, trimmed |
+| `email` | String | Company email, lowercase and trimmed |
+| `upvote` | Number | Upvote count |
+| `downvote` | Number | Downvote count |
+| `reports` | Number | Report count |
+| `postedBy` | ObjectId | User who added the record |
+| `createdAt` | Date | Creation timestamp |
+| `status` | String | `pending`, `approved` or `rejected` |
+| `category` | String | One of the `CATEGORIES` list; defaults to `Other` |
+| `AttendedBy` | ObjectId | Moderator who changed the status |
+| `expiresAt` | Date | TTL deletion time; `null` means never |
 
-The `Mail` model stores company email information.
+**TTL index.**
 
-### Fields
-
-| Field         | Type     | Description                |
-| ------------- | -------- | -------------------------- |
-| `companyName` | String   | Company name               |
-| `email`       | String   | Company email address      |
-| `upvote`      | Number   | Number of upvotes          |
-| `downvote`    | Number   | Number of downvotes        |
-| `postedBy`    | ObjectId | User who added the company |
-| `createdAt`   | Date     | Creation timestamp         |
-
-The model is exported as:
-
-```text
-Mail
+```js
+MailSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 ```
+
+The `expireAfterSeconds` option belongs in the second argument. Placing it
+inside the key list creates an ordinary compound index and nothing expires.
+MongoDB removes expired documents roughly once a minute.
+
+**Lifecycle:** new submissions expire after 3 days unless approved. Approving
+clears `expiresAt`; rejecting sets it 24 hours out.
 
 ---
 
-# 9. Banned User Model
+### 7.3 Banned User Model — `Model/BannedUsers.js`
 
-## `Model/BannedUsers.js`
-
-The `BannedUser` model stores information about banned accounts.
-
-### Fields
-
-| Field      | Type     | Description                |
-| ---------- | -------- | -------------------------- |
-| `email`    | String   | Email of banned user       |
-| `reason`   | String   | Reason for the ban         |
-| `bannedBy` | ObjectId | User who performed the ban |
-| `bannedAt` | Date     | Time of the ban            |
-
-The email field is unique.
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `email` | String | Unique, lowercase and trimmed |
+| `reason` | String | Reason for the ban |
+| `bannedBy` | ObjectId | Super admin who issued the ban |
+| `bannedAt` | Date | Time of the ban |
 
 ---
 
-# 10. Authentication
+### 7.4 Valid Domains Model — `Model/ValidDomains.js`
 
-## JWT Authentication
-
-Authentication is implemented using JSON Web Tokens.
-
-During login, the backend generates a token containing:
-
-```text
-userId
-```
-
-The token expires after:
-
-```text
-7 days
-```
-
-The client must send the JWT through the:
-
-```http
-Authorization
-```
-
-header.
+Caches domains that have passed MX-record validation, so repeated submissions
+from the same company do not trigger a DNS lookup each time.
 
 ---
 
-# 11. Authentication Middleware
+## 8. Authentication
 
-## `Middleware/Auth.js`
+JWTs are signed with `HS256` and contain `userId`. Tokens expire after 7 days.
+Clients send the token in the `Authorization` header, with or without a
+`Bearer ` prefix.
 
-The authentication middleware:
+### `Middleware/Auth.js`
 
-1. Reads the `Authorization` header.
-2. Rejects the request if the header is missing.
-3. Verifies the JWT using `JWT_SECRET`.
-4. Retrieves the corresponding user from MongoDB.
-5. Removes the password from the returned user object.
-6. Stores the user in:
+`authMiddleware`:
 
-```text
-req.user
-```
+1. Reads the `Authorization` header and strips an optional `Bearer ` prefix.
+2. Rejects the request with `401` if no token is present.
+3. Verifies the JWT with the algorithm pinned to `HS256`. Pinning prevents an
+   attacker supplying a token that claims a different algorithm.
+4. Loads the user, excluding the password field.
+5. **Rejects the request if the user no longer exists.** Banning deletes the
+   account, so without this a banned user's token would keep working until it
+   expired.
+6. **Rejects tokens issued before `passwordChangedAt`.** This is what makes a
+   password reset log out an attacker who is already signed in.
+7. Stores the user in `req.user`.
 
-7. Passes control to the next middleware/controller.
-
-### Authentication failure
-
-Missing token:
-
-```json
-{
-  "message": "No token, authorization denied"
-}
-```
-
-Invalid token:
-
-```json
-{
-  "message": "Token is not valid"
-}
-```
+`filterValidation` restricts non-moderators to the `approved` filter when
+listing company mails. It reads `req.user` rather than querying the database
+again.
 
 ---
 
-# 12. Role-Based Authorization
-
-## Moderator Authorization
-
-### `Middleware/moderatorAuth.js`
-
-Allows users whose role is:
-
-```text
-moderator
-```
-
-or:
-
-```text
-superAdmin
-```
-
-Otherwise the request receives:
-
-```text
-403 Forbidden
-```
-
----
-
-## Super Admin Authorization
+## 9. Role-Based Authorization
 
 ### `Middleware/superAdminAuth.js`
 
-Only users with:
+Allows only `role === "superAdmin"`. Everyone else receives `403`.
 
-```text
-role === "superAdmin"
-```
+### `Middleware/moderatorAuth.js`
 
-are allowed.
+Exports three functions:
 
-Unauthorized users receive:
-
-```json
-{
-  "message": "Access denied. Super admin only."
-}
-```
+* **`moderatorAuth`** — used on deletion. Allows the request if the caller is
+  the creator of the mail **or** a moderator/super admin. The loaded mail is
+  attached to `req.mail`.
+* **`moderatorOnly`** — allows moderators and super admins.
+* **`moderatorcheck`** — a route handler (not middleware) that reports whether
+  the caller is a moderator. It always sends a response.
 
 ---
 
-# 13. Ban Checking
+## 10. Ban Checking — `Middleware/BanChecker.js`
 
-## `Middleware/BanChecker.js`
+Reads the email from the request body, lowercases it, and searches the
+`BannedUser` collection. A match returns `403`. Applied to registration.
 
-The ban checker reads the email from the request body and searches the `BannedUser` collection.
-
-If the email belongs to a banned user, the request is rejected with:
-
-```text
-403 Forbidden
-```
-
-and:
-
-```json
-{
-  "message": "User is banned"
-}
-```
-
-This middleware is currently applied to user registration.
+The lowercasing matters: ban records are stored lowercase, so comparing raw
+input would let `Victim@example.com` bypass a ban on `victim@example.com`.
 
 ---
 
-# 14. User Registration
+## 11. Domain Validation — `Middleware/domainValidation.js`
 
-## Endpoint
+Applied to company submissions. It:
+
+1. Validates that the email contains exactly one `@`.
+2. Returns early if the domain is already cached in `ValidDomains`.
+3. Resolves MX records for the domain, returning `400` if there are none.
+4. Upserts the domain into the cache, so concurrent submissions cannot cause a
+   duplicate-key error.
+
+---
+
+## 12. Rate Limiting — `Middleware/Limiter.js`
+
+Limiters are **skipped entirely unless `NODE_ENV === "production"`**, so local
+testing is never throttled.
+
+All IP-based keys pass through `ipKeyGenerator`, which normalizes IPv6
+addresses to a subnet. Using `req.ip` directly would let an IPv6 client obtain
+a fresh counter per address.
+
+| Limiter | Window | Limit | Keyed by |
+| ------- | ------ | ----- | -------- |
+| `authLimiter` | 1 hour | 10 | Email (failed logins only) |
+| `otpVerifyLimiter` | 1 hour | 10 | `challengeId` |
+| `otpResendLimiter` | 1 hour | 3 | Email |
+| `passwordResetLimiter` | 1 hour | 3 | Email |
+| `registerLimiter` | 24 hours | 10 | IP |
+| `ipFloodLimiter` | 1 hour | 60 | IP |
+| `mailSubmissionLimiter` | 24 hours | 10 | User ID |
+
+**Why two layers.** Account-keyed limiters protect a specific account from
+being targeted, but an attacker controls the key and can rotate it.
+`ipFloodLimiter` sits behind them to cap total volume from one source.
+
+**Ordering.** `mailSubmissionLimiter` reads `req.user._id`, so it must be
+placed after `authMiddleware`. Limiters on public routes key on request body
+fields and can run first.
+
+**Storage.** Counts are held in memory and reset when the process restarts. A
+shared store such as `rate-limit-mongo` would be required if the app is scaled
+to more than one instance.
+
+---
+
+## 13. Email Verification
+
+Registration creates the account and immediately issues an OTP challenge. The
+account cannot log in until verification succeeds.
+
+### `generateOTP(userDoc)`
+
+An internal function, not a route handler. It accepts a user document, so both
+registration and resend can reuse it.
+
+1. Generates a six-digit code with `crypto.randomInt`, which is a
+   cryptographically secure generator.
+2. Generates a `challengeId` with `crypto.randomUUID`.
+3. Stores the code with a 5-minute expiry and resets `attempts` to zero.
+4. Sends the code by email, escaping the user's name.
+5. Returns the `challengeId`, and **throws** on failure so the caller knows the
+   email was not sent.
+
+### `POST /api/otp/verify`
+
+Public, because unverified users cannot log in and so could never reach a
+protected route.
+
+The user is located by `challengeId`, a 122-bit random UUID that identifies
+one verification attempt without requiring a JWT. Codes are compared with
+`crypto.timingSafeEqual` so response timing reveals nothing.
+
+Five wrong attempts destroys the challenge, which is the real protection
+against guessing: a rate limiter can be sidestepped by changing networks, but
+the counter is stored in the database.
+
+Request body:
+
+```json
+{
+  "challengeId": "uuid",
+  "otp": "123456"
+}
+```
+
+### `POST /api/otp/resend`
+
+Issues a fresh code. Necessary because codes expire in five minutes and a
+burnt challenge would otherwise leave an account permanently stranded: unable
+to log in without verifying, and unable to verify without a code.
+
+Returns the same generic `200` whether the account exists, does not exist, or
+is already verified, so it cannot be used to discover which addresses are
+registered.
+
+---
+
+## 14. User Registration
 
 ```http
 POST /api/register
 ```
 
-### Middleware
+Middleware: `registerLimiter` → `bannedCheck`
 
-```text
-BanChecker
-```
-
-### Request body
+Request body:
 
 ```json
 {
   "name": "John",
   "email": "john@example.com",
-  "password": "password"
+  "password": "at-least-8-chars"
 }
 ```
 
-### Process
+Process:
 
-1. Read user information.
-2. Check whether the email already exists.
-3. Check whether the email belongs to a banned user.
-4. Hash the password using bcrypt.
-5. Create the user.
-6. Save the user to MongoDB.
+1. Validate that all three fields are strings, the email matches a basic
+   pattern, and the password is at least 8 characters. The string check closes
+   an injection route where an object could be supplied in place of a string.
+2. Normalize the email to lowercase.
+3. Reject if the email is already registered or banned.
+4. Hash the password with bcrypt, 10 salt rounds.
+5. Save the user.
+6. Issue an OTP challenge. A mail failure is caught and reported in the
+   response rather than turning a saved account into a `500`.
 
-The password is hashed using bcrypt with a salt round value of `10`.
-
-### Success
+Success:
 
 ```json
 {
-  "message": "User registered successfully",
-  "user": {}
+  "message": "User registered successfully. Check your email for the verification code.",
+  "challengeId": "uuid"
 }
 ```
 
-### Possible errors
-
-Existing user:
-
-```text
-400 Bad Request
-```
-
-Banned user:
-
-```text
-400 Bad Request
-```
-
-Server error:
-
-```text
-500 Internal Server Error
-```
+The response deliberately contains **no user object**, because the document at
+this point holds the OTP and the password hash.
 
 ---
 
-# 15. User Login
-
-## Endpoint
+## 15. User Login
 
 ```http
 POST /api/login
 ```
 
-### Request body
+Middleware: `authLimiter` → `ipFloodLimiter`
 
-```json
-{
-  "email": "john@example.com",
-  "password": "password"
-}
-```
+Process:
 
-### Process
+1. Validate that email and password are strings.
+2. Look up the user by lowercased email.
+3. Compare the password against the stored hash.
+4. Reject unverified accounts with `403` and `needsVerification: true`, which
+   lets the frontend redirect to the OTP screen.
+5. Sign a JWT valid for 7 days.
 
-1. Find the user using the email.
-2. Compare the supplied password with the stored bcrypt hash.
-3. Generate a JWT.
-4. Return the authenticated user and token.
+**Uniform failure response.** Both an unknown email and a wrong password return
+`401` with the same message. When the two differed, the response revealed which
+addresses were registered. For the same reason, an unknown email still runs a
+bcrypt comparison against a dummy hash, so the two paths take a similar amount
+of time.
 
-The JWT payload contains:
-
-```json
-{
-  "userId": "USER_ID"
-}
-```
-
-The token expires after seven days.
-
-### Successful response
+Successful response:
 
 ```json
 {
   "message": "Login successful",
-  "user": {},
-  "token": "JWT_TOKEN"
+  "token": "JWT_TOKEN",
+  "user": {
+    "_id": "...",
+    "name": "...",
+    "email": "...",
+    "role": "user",
+    "isModerator": false
+  }
 }
 ```
 
 ---
 
-# 16. Company Management
+## 16. Company Management
 
-## Add Company
+### Add company
 
 ```http
 POST /api/add-company
 ```
 
-Authentication required.
-
-### Body
+Middleware: `authMiddleware` → `mailSubmissionLimiter` → `domainCheck`
 
 ```json
 {
   "companyName": "Example Company",
-  "email": "hr@example.com"
+  "email": "hr@example.com",
+  "category": "IT"
 }
 ```
 
-The company email is associated with the authenticated user through:
+`category` falls back to `Other` when omitted. An invalid category returns
+`400` rather than a validation `500`.
 
-```text
-postedBy
-```
-
----
-
-## Get Companies
+### List companies
 
 ```http
-GET /api/get-companies
+GET /api/get-companies/:statusParameter
 ```
 
-Authentication required.
+`statusParameter` is one of `approved`, `pending`, `rejected`, `all`.
+Non-moderators may only request `approved`.
 
-Returns the stored company email records.
-
----
-
-## Delete Company Email
+### Delete company mail
 
 ```http
 DELETE /api/delete-company-mail/:id
 ```
 
-Authentication required.
+Middleware: `authMiddleware` → `moderatorAuth`
 
-The `id` parameter represents the MongoDB ID of the company mail record.
+Permitted for the creator of the record **or** a moderator/super admin.
 
 ---
 
-# 17. Voting System
-
-## Upvote
+## 17. Voting System
 
 ```http
 POST /api/upvote-company-mail/:id
+POST /api/downvote-company-mail/:id
 ```
 
-Authentication required.
+One vote per user per mail. The user document's `upvoteArray` and
+`downvoteArray` are the source of truth:
 
-The corresponding mail's `upvote` value is increased by one.
+```js
+User.updateOne(
+  { _id: req.user._id, upvoteArray: { $ne: mailId } },
+  { $addToSet: { upvoteArray: mailId }, $pull: { downvoteArray: mailId } }
+);
+```
 
-### Response
+The filter matches only when the user has not already voted, and the array
+update is atomic, so two simultaneous requests cannot both succeed. The mail's
+counter is incremented only when `modifiedCount` is 1. Switching from upvote to
+downvote withdraws the previous vote and decrements the opposite counter.
+
+A repeat vote returns `400`.
+
+Response:
 
 ```json
 {
   "message": "Upvoted successfully",
-  "upvote": 1
+  "upvote": 1,
+  "downvote": 0
 }
 ```
 
----
-
-## Downvote
-
-```http
-POST /api/downvote-company-mail/:id
-```
-
-Authentication required.
-
-The corresponding mail's `downvote` value is increased by one.
-
-### Response
-
-```json
-{
-  "message": "Downvoted successfully",
-  "downvote": 1
-}
-```
+Votes can be switched but not withdrawn entirely.
 
 ---
 
-# 18. Reporting Company Emails
-
-## Endpoint
+## 18. Reporting
 
 ```http
 POST /api/report-mail/:id
 ```
 
-Authentication required.
-
-The controller:
-
-1. Finds the company mail.
-2. Finds the authenticated user.
-3. Increments the mail's report count.
-4. Adds the mail ID to the user's `reportedArray`.
-5. Saves both records.
-
-The user therefore maintains a list of company mails they have reported.
+One report per user per mail, enforced the same way as voting through
+`reportedArray`. The mail's `reports` counter is incremented atomically.
 
 ---
 
-# 19. Moderator Management
+## 19. Moderator Management
 
-## Assign Moderator
+Both endpoints require **super admin** authorization.
 
 ```http
 POST /api/assign-moderator
+POST /api/demote-moderator
 ```
 
-Authentication required.
+```json
+{ "email": "user@example.com" }
+```
 
-### Request body
+Assignment sets `role = "moderator"`, `isModerator = true` and records
+`moderatorSelectedBy`. Demotion reverses all three.
+
+**A super admin's role cannot be changed by either endpoint.** Without this,
+an attacker who reached moderator level could demote the super admin and remove
+their ban powers.
+
+Assigning a user who is already a moderator returns `400`, preventing
+`moderatorSelectedBy` from being silently reassigned.
+
+Both send an email notification with the recipient's name HTML-escaped.
+
+---
+
+## 20. Mail Moderation
+
+```http
+POST /api/change-mail-status
+```
+
+Middleware: `authMiddleware` → `moderatorOnly`
 
 ```json
 {
-  "email": "user@example.com"
+  "mailId": "MAIL_ID",
+  "newStatus": "approved"
 }
 ```
 
-The selected user is changed to:
-
-```text
-role = moderator
-```
-
-and:
-
-```text
-isModerator = true
-```
-
-The ID of the user who selected the moderator is stored in:
-
-```text
-moderatorSelectedBy
-```
-
-An email notification is then sent using Resend.
+`newStatus` is validated against `pending`, `approved` and `rejected` before
+the save. Approving clears `expiresAt`; rejecting sets it 24 hours ahead. The
+acting moderator is recorded in `AttendedBy`.
 
 ---
 
-## Demote Moderator
+## 21. Password Reset
 
-The controller contains a `demoteModerator` function.
-
-It:
-
-1. Finds the user by email.
-2. Changes `isModerator` to `false`.
-3. Clears `moderatorSelectedBy`.
-4. Changes the role back to `user`.
-5. Sends an email notification.
-
-Currently, this controller function exists in the source code but is **not registered as an Express route in `server.js`**.
-
----
-
-# 20. Password Reset
-
-Password reset consists of two operations.
-
-## Request Password Reset
+### Request a reset
 
 ```http
 POST /api/forgot-password
 ```
 
-### Request
+1. Generate a 32-byte random token.
+2. Store **only its SHA-256 hash** in `resetPasswordToken`.
+3. Set a 5-minute expiry.
+4. Email the raw token as a reset link.
 
-```json
-{
-  "email": "user@example.com"
-}
-```
+Storing the hash means a database leak yields no usable reset tokens, on the
+same reasoning as password hashing. The response is an identical `200` whether
+or not the account exists.
 
-The backend:
-
-1. Finds the user.
-2. Generates a random reset token.
-3. Stores the token in the user document.
-4. Sets an expiration time five minutes into the future.
-5. Sends a reset email through Resend.
-
-The token is generated using Node.js `crypto.randomBytes()`.
-
----
-
-# 21. Reset Password
-
-## Endpoint
+### Perform the reset
 
 ```http
 POST /api/reset-password/:token
 ```
 
-### Body
-
 ```json
-{
-  "newPassword": "newPassword"
-}
+{ "password": "at-least-8-chars" }
 ```
 
-The backend verifies:
-
-```text
-resetPasswordToken
-```
-
-and:
-
-```text
-resetPasswordExpires > current time
-```
-
-If valid:
-
-1. The new password is hashed.
-2. The password is updated.
-3. The reset token is removed.
-4. The expiry value is removed.
-5. A confirmation email is sent.
-
-The reset token is valid for five minutes.
+The incoming token is hashed and matched against the stored hash together with
+an unexpired timestamp. On success the password is rehashed, the token cleared,
+and `passwordChangedAt` set to the current time — which invalidates every JWT
+issued before that moment.
 
 ---
 
-# 22. Email System
+## 22. User Templates
 
-## `mailer.js`
-
-HireLink uses the Resend service for sending emails.
-
-The Resend client is initialized with:
-
-```text
-RESEND_API_KEY
+```http
+POST /api/template/add
+GET  /api/template/get
 ```
 
-Emails are sent from:
-
-```text
-HireLink <noreply@hirelink.atmex.site>
-```
-
-The reusable email function is:
-
-```text
-sendEmail(to, subject, html)
-```
-
-This function is used by:
-
-* Moderator selection
-* Moderator demotion
-* Password reset
-* Password reset confirmation
-* User banning
-* User unbanning
+Stores a reusable email subject and body per user. Input is capped at 200
+characters for the subject and 5000 for the body.
 
 ---
 
-# 23. User Ban System
+## 23. Ban System
 
-## Ban User
+Both endpoints require **super admin** authorization.
 
 ```http
 POST /api/ban-user
+POST /api/unban-user
 ```
 
-Authentication required.
-
-Super-admin authorization required.
-
-### Body
+Ban request body:
 
 ```json
 {
@@ -810,86 +684,112 @@ Super-admin authorization required.
 }
 ```
 
-### Process
+Ban process:
 
-1. Find the user.
-2. Create a `BannedUser` record.
-3. Store the banning user's ID.
-4. Delete the user's account.
-5. Send a ban notification email.
+1. Reject if the target is a super admin, or is the caller themselves.
+2. Upsert a `BannedUser` record, so banning twice is a no-op rather than a
+   duplicate-key error.
+3. Send the notification email, with both the name and the reason escaped.
+4. Delete the user account.
 
-The banned user's email remains in the `BannedUser` collection, preventing registration with that email.
+The email is sent before the deletion, because the document supplies the name
+and address. A mail failure is caught so it cannot abort the ban.
 
----
+Unbanning removes the record and sends a notification. The response is sent
+after all work completes.
 
-# 24. Unban User
-
-## Endpoint
-
-```http
-POST /api/unban-user
-```
-
-Authentication required.
-
-### Body
-
-```json
-{
-  "email": "user@example.com"
-}
-```
-
-The corresponding banned-user record is deleted.
-
-After removal, the email is no longer present in the banned-user collection.
-
-An unban notification email is also sent.
+**Note:** banning deletes the user document, so mails posted by that user keep
+a `postedBy` reference that no longer resolves. Handle null values when
+populating.
 
 ---
 
-# 25. API Reference
+## 24. API Reference
 
-| Method | Endpoint                         | Authentication    | Purpose                |
-| ------ | -------------------------------- | ----------------- | ---------------------- |
-| POST   | `/api/register`                  | Ban check         | Register user          |
-| POST   | `/api/login`                     | No                | Login                  |
-| POST   | `/api/forgot-password`           | No                | Request password reset |
-| POST   | `/api/reset-password/:token`     | No                | Reset password         |
-| POST   | `/api/add-company`               | JWT               | Add company email      |
-| GET    | `/api/get-companies`             | JWT               | Get company emails     |
-| DELETE | `/api/delete-company-mail/:id`   | JWT               | Delete company email   |
-| POST   | `/api/upvote-company-mail/:id`   | JWT               | Upvote company email   |
-| POST   | `/api/downvote-company-mail/:id` | JWT               | Downvote company email |
-| POST   | `/api/report-mail/:id`           | JWT               | Report company email   |
-| POST   | `/api/assign-moderator`          | JWT               | Assign moderator       |
-| POST   | `/api/ban-user`                  | JWT + Super Admin | Ban user               |
-| POST   | `/api/unban-user`                | JWT               | Remove ban             |
+| Method | Endpoint | Authorization | Purpose |
+| ------ | -------- | ------------- | ------- |
+| POST | `/api/register` | Ban check | Register user |
+| POST | `/api/login` | None | Login |
+| POST | `/api/otp/verify` | None | Verify email with OTP |
+| POST | `/api/otp/resend` | None | Request a new OTP |
+| POST | `/api/forgot-password` | None | Request password reset |
+| POST | `/api/reset-password/:token` | None | Reset password |
+| POST | `/api/add-company` | JWT | Add company email |
+| GET | `/api/get-companies/:statusParameter` | JWT | List company emails |
+| DELETE | `/api/delete-company-mail/:id` | JWT + creator or moderator | Delete company email |
+| POST | `/api/upvote-company-mail/:id` | JWT | Upvote |
+| POST | `/api/downvote-company-mail/:id` | JWT | Downvote |
+| POST | `/api/report-mail/:id` | JWT | Report |
+| POST | `/api/template/add` | JWT | Save email template |
+| GET | `/api/template/get` | JWT | Fetch email template |
+| GET | `/api/role` | JWT | Get caller's role |
+| GET | `/api/moderator-check` | JWT | Check moderator status |
+| POST | `/api/change-mail-status` | JWT + moderator | Approve or reject a mail |
+| POST | `/api/assign-moderator` | JWT + super admin | Assign moderator |
+| POST | `/api/demote-moderator` | JWT + super admin | Demote moderator |
+| POST | `/api/ban-user` | JWT + super admin | Ban user |
+| POST | `/api/unban-user` | JWT + super admin | Remove ban |
 
 ---
 
-# 26. Authentication Flow
+## 25. Registration and Verification Flow
 
 ```text
 Client
+  │ POST /api/register
+  ▼
+registerLimiter → BanChecker
   │
+  ▼
+Registration Controller
+  ├── Validate input types and length
+  ├── Normalize email to lowercase
+  ├── Check existing and banned
+  ├── Hash password
+  ├── Save user (isVerified = false)
+  └── generateOTP() → sends email
+  │
+  ▼
+201 + challengeId
+  │
+  │ POST /api/otp/verify { challengeId, otp }
+  ▼
+Verify Controller
+  ├── Find user by challengeId
+  ├── Check expiry
+  ├── timingSafeEqual comparison
+  ├── 5 failures destroys the challenge
+  └── isVerified = true
+  │
+  ▼
+Login now permitted
+```
+
+---
+
+## 26. Authentication Flow
+
+```text
+Client
   │ POST /api/login
   ▼
-Login Controller
+authLimiter → ipFloodLimiter
   │
-  ├── Find User
-  ├── Compare Password
-  └── Generate JWT
+  ▼
+Login Controller
+  ├── Find user (lowercased email)
+  ├── Compare password (uniform failure response)
+  ├── Reject if not verified
+  └── Sign JWT (HS256, 7 days)
   │
   ▼
 Client receives JWT
-  │
   │ Authorization: <JWT>
   ▼
 Auth Middleware
-  │
-  ├── Verify JWT
-  ├── Find User
+  ├── Verify JWT with pinned algorithm
+  ├── Load user, reject if deleted
+  ├── Reject if issued before passwordChangedAt
   └── req.user
   │
   ▼
@@ -898,313 +798,176 @@ Protected Controller
 
 ---
 
-# 27. Registration Flow
+## 27. Error Handling
 
-```text
-Client
-  │
-  │ POST /api/register
-  ▼
-BanChecker
-  │
-  ├── Check banned email
-  │
-  ▼
-Registration Controller
-  │
-  ├── Check existing user
-  ├── Hash password
-  ├── Create User
-  └── Save User
-  │
-  ▼
-201 Created
-```
+| Status | Meaning |
+| ------ | ------- |
+| `200` | Successful operation |
+| `201` | Resource created |
+| `400` | Invalid request or duplicate resource |
+| `401` | Authentication failure |
+| `403` | Authorization or ban restriction |
+| `404` | Resource not found |
+| `429` | Rate limit exceeded |
+| `500` | Server-side error |
 
----
-
-# 28. Password Reset Flow
-
-```text
-Client
-  │
-  │ Forgot password
-  ▼
-/api/forgot-password
-  │
-  ├── Find user
-  ├── Generate token
-  ├── Store token + expiry
-  └── Send email
-  │
-  ▼
-User receives reset link
-  │
-  ▼
-/api/reset-password/:token
-  │
-  ├── Validate token
-  ├── Check expiration
-  ├── Hash new password
-  ├── Clear reset token
-  └── Send confirmation
-```
-
----
-
-# 29. Ban Flow
-
-```text
-Super Admin
-    │
-    │ POST /api/ban-user
-    ▼
-Auth Middleware
-    │
-    ▼
-Super Admin Middleware
-    │
-    ▼
-Ban User Controller
-    │
-    ├── Create BannedUser record
-    ├── Delete User
-    └── Send email
-```
-
----
-
-# 30. Error Handling
-
-The controllers generally use the following HTTP status codes:
-
-| Status | Meaning                             |
-| ------ | ----------------------------------- |
-| `200`  | Successful operation                |
-| `201`  | Resource created                    |
-| `400`  | Invalid request / existing resource |
-| `401`  | Authentication failure              |
-| `403`  | Authorization/ban restriction       |
-| `404`  | Resource/user not found             |
-| `500`  | Server-side error                   |
-
-Errors are generally returned as JSON:
+Errors are returned as JSON:
 
 ```json
-{
-  "message": "Error description"
-}
+{ "message": "Error description" }
 ```
 
----
-
-# 31. Security Mechanisms
-
-The current implementation includes several security mechanisms:
-
-### Password hashing
-
-Passwords are hashed using:
-
-```text
-bcryptjs
-```
-
-before being stored.
-
-### JWT authentication
-
-Protected API endpoints require a valid JWT.
-
-### JWT expiration
-
-Authentication tokens expire after seven days.
-
-### Password reset expiration
-
-Password-reset tokens expire after five minutes.
-
-### Role-based access
-
-Super-admin functionality is protected by a dedicated middleware.
-
-### Banned email protection
-
-Banned email addresses cannot register again while their ban record exists.
-
-### Password exclusion in authentication middleware
-
-The authentication middleware retrieves the user while excluding the password field.
+Controllers log the full error server-side and return a generic message.
+Raw error objects and `error.message` values are never sent to clients, since
+they can disclose internal structure. A catch-all handler in `server.js`
+covers anything thrown outside a controller's try/catch.
 
 ---
 
-# 32. Current Implementation Notes
+## 28. Security Mechanisms
 
-The following points are based directly on the supplied source code and are documented rather than silently modified.
+**Authentication**
 
-### 32.1 Report counter is not defined in the Mail schema
+* Passwords hashed with bcrypt, 10 salt rounds.
+* JWTs signed and verified with the algorithm pinned to `HS256`.
+* Tokens expire after 7 days.
+* Deleted and banned users' tokens are rejected immediately.
+* Password resets invalidate all existing sessions via `passwordChangedAt`.
 
-`reportCompanyMail()` increments:
+**Account security**
 
-```text
-companyMail.reports
-```
+* Email verification is mandatory before login.
+* OTPs are generated with a cryptographically secure RNG and compared in
+  constant time, with a 5-attempt cap.
+* Reset tokens are stored as SHA-256 hashes with a 5-minute expiry.
 
-and returns:
+**Information disclosure**
 
-```text
-companyMail.reports
-```
+* Login, forgot-password and OTP resend return uniform responses, so none can
+  be used to discover which email addresses are registered.
+* The `toJSON` transform strips password hashes, reset tokens and OTP data from
+  every serialized user.
+* No stack traces or raw error objects reach clients.
 
-However, `Model/LinkSchema.js` currently defines `upvote` and `downvote` but does not define a `reports` field.
+**Injection and input handling**
 
-Therefore, the report counter implementation should be reviewed.
+* `sanitizeFilter` blocks MongoDB operator injection at the driver level.
+* Controllers verify types before querying.
+* All user-supplied text inserted into outbound email HTML is escaped.
+* Request bodies are capped at 100 kb.
 
----
+**Authorization**
 
-### 32.2 Moderator middleware is currently unused
+* Moderator assignment, demotion, ban and unban are restricted to super admins.
+* A super admin's role cannot be changed and their account cannot be banned.
+* Deletion requires ownership or moderator status.
 
-`Middleware/moderatorAuth.js` exists and supports moderator/super-admin authorization, but the routes shown in `server.js` do not currently use it.
+**Abuse prevention**
 
----
+* Account-keyed rate limits on login, OTP and password reset, with an IP-based
+  backstop.
+* Daily per-user cap on company submissions.
+* One vote and one report per user per mail, enforced atomically.
+* Emails are stored and compared lowercase, so bans cannot be evaded by
+  changing letter case.
 
-### 32.3 Moderator demotion has no route
+**Transport and headers**
 
-`demoteModerator()` exists inside `controller/moderatorManager.js`, but `server.js` does not currently register an endpoint for it.
-
----
-
-### 32.4 Ban/unban authorization differs
-
-The ban endpoint uses:
-
-```text
-Auth → Super Admin
-```
-
-while the unban endpoint currently uses only:
-
-```text
-Auth
-```
-
-Therefore, the current source does not restrict unbanning specifically to super administrators.
-
----
-
-### 32.5 Company deletion authorization
-
-The delete-company endpoint requires authentication, but the controller currently does not check whether the authenticated user owns the company record or has an administrative role.
+* `helmet()` sets security headers and removes `X-Powered-By`.
+* CORS is restricted to an allowlist; the localhost origin is excluded in
+  production.
 
 ---
 
-### 32.6 Vote tracking
+## 29. Operational Notes
 
-The `User` model contains:
+### Rate limiting requires `NODE_ENV=production`
 
-```text
-upvoteArray
-downvoteArray
-```
+Every limiter is skipped when `NODE_ENV` is anything else. This is deliberate,
+so local testing is not throttled, but it means the variable **must** be set on
+the production host or the application runs with no rate limiting at all.
 
-but the current upvote/downvote controller only increments the corresponding counters on the `Mail` document.
+### Reverse proxies
 
-The current implementation does not use those arrays to prevent repeated voting.
+`app.set("trust proxy", 1)` is required behind Render, Railway, Nginx or any
+similar proxy. Without it every request appears to come from the proxy's IP and
+the IP-based limiters block all users at once.
+
+### Index changes are not automatic
+
+Mongoose creates indexes but never drops or modifies existing ones. Changing an
+index definition in a schema leaves the old index in the database. Drop it
+explicitly, then restart so the new definition is created.
+
+### In-memory rate limit counters
+
+Counters reset on restart and are not shared between instances. A store such as
+`rate-limit-mongo` is needed before scaling horizontally.
 
 ---
 
-### 32.7 Password reset URL
-
-The password reset email currently contains a URL using:
-
-```text
-http://localhost:3000/reset-password/<token>
-```
-
-This is a development/local URL and should be replaced with the appropriate deployed frontend URL when the production frontend is available.
-
----
-
-# 33. Deployment Requirements
+## 30. Deployment Requirements
 
 A deployment environment must provide:
 
 ```text
 Node.js
 MongoDB connectivity
-Environment variables
-Resend API access
+Environment variables (including NODE_ENV=production)
+Resend API access with a verified sending domain
 ```
-
-The deployment environment must install the dependencies listed in `package.json`.
-
-In particular:
-
-```text
-resend
-```
-
-is a runtime dependency and is required by `mailer.js`.
 
 ---
 
-# 34. Production Configuration Checklist
+## 31. Production Configuration Checklist
 
-Before production deployment:
-
-* Configure `DBURL`.
-* Configure a strong `JWT_SECRET`.
-* Configure `RESEND_API_KEY`.
-* Configure the production `PORT` if required by the hosting platform.
-* Configure the production frontend URL for password-reset links.
-* Restrict CORS to trusted frontend origins instead of allowing every origin.
-* Verify Resend domain configuration.
-* Ensure sensitive `.env` files are not committed.
-* Review authorization for deletion, voting, reporting, banning, and unbanning.
-* Add the missing report field if report counting is intended.
-* Add a route for moderator demotion if that functionality is required.
-* Decide whether moderator-only operations should use `moderatorAuth`.
-* Prevent duplicate voting if one-vote-per-user behavior is intended.
+* Configure `DBURL`, `JWT_SECRET`, `RESEND_API_KEY` and `PORT`.
+* **Set `NODE_ENV=production`**, or no rate limiting is applied.
+* Confirm `trust proxy` matches the hosting setup.
+* Verify the Resend sending domain.
+* Confirm the CORS allowlist contains the production frontend origin.
+* Ensure `.env` is not committed, and rotate any secret that ever was.
+* Confirm at least one account has `role: "superAdmin"`, otherwise no one can
+  assign moderators or issue bans.
+* Enable Dependabot or equivalent for dependency alerts.
+* Add automated tests for the authentication and authorization paths.
 
 ---
 
-# 35. Overall Architecture
+## 32. Architecture
 
 ```text
                     ┌───────────────────┐
                     │      Client       │
                     └─────────┬─────────┘
-                              │
                               │ HTTP / JSON
                               ▼
                     ┌───────────────────┐
                     │    Express.js     │
                     │     server.js     │
+                    │  helmet + CORS    │
                     └─────────┬─────────┘
                               │
              ┌────────────────┼─────────────────┐
              │                │                 │
              ▼                ▼                 ▼
-       Authentication     Controllers       Middleware
-             │                │                 │
+        Rate Limiters    Controllers        Middleware
              │                │                 ├── Auth
              │                │                 ├── BanChecker
              │                │                 ├── SuperAdmin
-             │                │                 └── Moderator
+             │                │                 ├── Moderator
+             │                │                 └── DomainValidation
              │                │
              └────────────────┼─────────────────┘
-                              │
                               ▼
                     ┌───────────────────┐
                     │     Mongoose      │
+                    │  sanitizeFilter   │
                     └─────────┬─────────┘
-                              │
                               ▼
                     ┌───────────────────┐
                     │      MongoDB      │
                     └───────────────────┘
-
-                              │
                               │
                               ▼
                     ┌───────────────────┐
@@ -1215,43 +978,44 @@ Before production deployment:
 
 ---
 
-# 36. Summary
-
-HireLink's backend is a REST API built around Express.js and MongoDB.
-
-Its main components are:
+## 33. Summary
 
 ```text
 Express
    │
    ├── Authentication
-   │     └── JWT
+   │     ├── JWT (HS256, 7 days)
+   │     ├── Email verification (OTP)
+   │     └── Session invalidation on password change
    │
    ├── User Management
    │     ├── Registration
    │     ├── Login
    │     ├── Password Reset
-   │     └── Ban/Unban
+   │     └── Ban / Unban
    │
    ├── Company Email Management
-   │     ├── Add
-   │     ├── Retrieve
-   │     ├── Delete
-   │     ├── Upvote
-   │     ├── Downvote
-   │     └── Report
+   │     ├── Add (domain-validated)
+   │     ├── Retrieve (status-filtered)
+   │     ├── Delete (creator or moderator)
+   │     ├── Upvote / Downvote (one per user)
+   │     ├── Report (one per user)
+   │     └── Approve / Reject (moderator)
    │
    ├── Moderator Management
-   │     ├── Assign
-   │     └── Demote
+   │     ├── Assign (super admin)
+   │     └── Demote (super admin)
    │
    ├── Authorization
    │     ├── User
    │     ├── Moderator
    │     └── Super Admin
    │
+   ├── Rate Limiting
+   │     ├── Account-keyed
+   │     ├── IP backstop
+   │     └── Per-user daily caps
+   │
    └── Email Notifications
          └── Resend
 ```
-
- #####################################################################################
